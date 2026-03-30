@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hand Hygiene Monitoring — KCPH</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --bg:#0a0f1e;--surface:#111827;--card:#161f32;--border:#1e2d45;
+  --accent:#00c2a8;--accent2:#4f8ef7;--accent3:#f7a84f;
+  --danger:#f75f5f;--text:#e8edf5;--muted:#6b7fa3;
+  --good:#00c2a8;--warn:#f7a84f;--bad:#f75f5f;--radius:12px;
+  --mono:'DM Mono',monospace;--sans:'Sora',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;}
+
+header{background:linear-gradient(135deg,#0d1b35,#0a1628);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 18px rgba(0,194,168,.35);}
+.logo-text h1{font-size:15px;font-weight:700;}
+.logo-text p{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;}
+.today-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--border);padding:5px 12px;border-radius:20px;}
+
+.gas-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 24px;display:flex;align-items:center;gap:10px;font-size:11px;flex-wrap:wrap;}
+.gas-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.gas-dot.ok{background:var(--good);box-shadow:0 0 6px rgba(0,194,168,.5);}
+.gas-dot.err{background:var(--bad);}
+.gas-dot.sync{animation:pulse .8s infinite;background:var(--warn);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.gas-label{color:var(--muted);white-space:nowrap;}
+.gas-url-input{flex:1;max-width:440px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 10px;font-size:11px;font-family:var(--mono);outline:none;}
+.gas-url-input:focus{border-color:var(--accent);}
+.btn-xs{padding:4px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:var(--sans);transition:border .2s,color .2s;white-space:nowrap;}
+.btn-xs:hover{border-color:var(--accent);color:var(--accent);}
+
+.nav-tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;}
+.nav-tab{padding:13px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;transition:all .2s;white-space:nowrap;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+.main{display:flex;min-height:calc(100vh - 150px);}
+.sidebar{width:215px;background:var(--surface);border-right:1px solid var(--border);padding:14px 0;flex-shrink:0;overflow-y:auto;}
+.sidebar-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;padding:0 14px 8px;}
+.dept-item{padding:9px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .15s;border-left:3px solid transparent;}
+.dept-item:hover{background:var(--card);}
+.dept-item.active{background:rgba(0,194,168,.08);border-left-color:var(--accent);}
+.dept-name{font-size:12.5px;font-weight:500;}
+.dept-score{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:20px;font-weight:500;}
+.score-good{background:rgba(0,194,168,.15);color:var(--good);}
+.score-warn{background:rgba(247,168,79,.15);color:var(--warn);}
+.score-bad{background:rgba(247,95,95,.15);color:var(--bad);}
+
+.content{flex:1;padding:22px 26px;overflow-y:auto;}
+.view{display:none;}.view.active{display:block;}
+.page-title{font-size:21px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:20px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent-color,var(--accent));}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono);margin-bottom:7px;}
+.stat-value{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--accent-color,var(--accent));line-height:1;}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:4px;}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.chart-card h4{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-family:var(--mono);margin-bottom:14px;}
+.chart-wrap{position:relative;height:210px;}
+
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:18px;}
+.form-card h3{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:var(--mono);}
+.field select,.field input{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;font-family:var(--sans);outline:none;transition:border .2s;appearance:none;}
+.field select:focus,.field input:focus{border-color:var(--accent);}
+
+.cl-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
+.cl-header{padding:11px 16px;font-size:13px;font-weight:600;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);}
+.cl-body{padding:12px 16px;}
+.check-row{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.check-row:last-child{border-bottom:none;}
+.check-label{flex:1;font-size:12.5px;line-height:1.4;}
+.check-label span{display:block;font-size:11px;color:var(--muted);margin-top:2px;}
+.radio-group{display:flex;gap:5px;flex-shrink:0;padding-top:2px;}
+.radio-btn{padding:4px 11px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;font-family:var(--mono);transition:all .15s;}
+.radio-btn:hover{border-color:var(--accent);color:var(--accent);}
+.radio-btn.sel-yes{background:rgba(0,194,168,.15);border-color:var(--good);color:var(--good);}
+.radio-btn.sel-no{background:rgba(247,95,95,.15);border-color:var(--bad);color:var(--bad);}
+.radio-btn.sel-na{background:rgba(107,127,163,.15);border-color:var(--muted);color:var(--muted);}
+
+.btn-primary{background:linear-gradient(135deg,var(--accent),#00a894);color:#000;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;font-family:var(--sans);cursor:pointer;transition:opacity .2s,transform .15s;box-shadow:0 4px 14px rgba(0,194,168,.3);}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:13px;font-family:var(--sans);cursor:pointer;transition:border .2s;margin-right:8px;}
+.btn-secondary:hover{border-color:var(--accent);}
+.export-row{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.btn-export{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:12px;font-family:var(--sans);font-weight:500;transition:all .2s;}
+.btn-export:hover{border-color:var(--accent2);color:var(--accent2);}
+
+.records-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.records-toolbar{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.records-toolbar h4{font-size:13px;font-weight:600;}
+.search-input{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;font-size:12px;font-family:var(--sans);outline:none;width:180px;}
+.search-input:focus{border-color:var(--accent);}
+
+.data-table{width:100%;border-collapse:collapse;font-size:12px;}
+.data-table th{text-align:left;padding:9px 12px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);border-bottom:1px solid var(--border);}
+.data-table td{padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+.data-table tr:hover td{background:rgba(255,255,255,.02);}
+.dept-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;}
+.prog-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;width:70px;}
+.prog-fill{height:100%;border-radius:3px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;font-family:var(--mono);}
+.tbl-actions{display:flex;gap:5px;}
+.btn-tbl{padding:3px 9px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);font-family:var(--sans);transition:all .15s;white-space:nowrap;}
+.btn-tbl:hover{border-color:var(--accent2);color:var(--accent2);}
+.btn-tbl.del:hover{border-color:var(--bad);color:var(--bad);}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:#000;padding:11px 20px;border-radius:10px;font-weight:600;font-size:13px;box-shadow:0 8px 24px rgba(0,194,168,.4);transform:translateY(80px);opacity:0;transition:all .35s cubic-bezier(.22,.68,0,1.2);z-index:999;}
+.toast.show{transform:translateY(0);opacity:1;}
+.empty{text-align:center;padding:40px;color:var(--muted);}
+.empty .empty-icon{font-size:36px;margin-bottom:10px;}
+.empty p{font-size:12px;}
+.spinner{width:14px;height:14px;border:2px solid rgba(0,194,168,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+@media(max-width:768px){.charts-grid{grid-template-columns:1fr;}.sidebar{width:160px;}.content{padding:14px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧴</div>
+    <div class="logo-text">
+      <h1>Hand Hygiene Monitoring</h1>
+      <p>Kampong Chhnang Provincial Hospital · IPC Program</p>
+    </div>
+  </div>
+  <div class="today-badge" id="todayBadge"></div>
+</header>
+
+<div class="gas-bar">
+  <div class="gas-dot" id="gasDot"></div>
+  <span class="gas-label" id="gasLabel">Cloud sync: connecting…</span>
+  <input class="gas-url-input" id="gasUrlInput" placeholder="Google Apps Script Web App URL…" oninput="onGasUrlChange()">
+  <button class="btn-xs" onclick="pingGas()">🔗 Connect</button>
+  <button class="btn-xs" onclick="syncFromGas()" id="syncBtn">☁ Pull from Sheet</button>
+</div>
+
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+  <button class="nav-tab" onclick="switchTab('assess')">📋 New Assessment</button>
+  <button class="nav-tab" onclick="switchTab('records')">🗂 Records</button>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-label">Departments</div>
+    <div id="deptList"></div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-title">Overview Dashboard</div>
+      <p class="page-sub">Real-time compliance across all departments and categories</p>
+      <div class="export-row">
+        <button class="btn-export" onclick="exportExcel()">📊 Export Excel</button>
+        <button class="btn-export" onclick="exportSummaryPDF()">📄 Export Summary PDF</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card" style="--accent-color:var(--accent)">
+          <div class="stat-label">Overall Compliance</div>
+          <div class="stat-value" id="kpi-overall">—</div>
+          <div class="stat-sub">All depts · all categories</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--accent2)">
+          <div class="stat-label">Hand Sanitation</div>
+          <div class="stat-value" id="kpi-san">—</div>
+          <div class="stat-sub">Product use &amp; availability</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--accent3)">
+          <div class="stat-label">5 Moments</div>
+          <div class="stat-value" id="kpi-moments">—</div>
+          <div class="stat-sub">WHO 5-moment compliance</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#b06ef7">
+          <div class="stat-label">6 Steps</div>
+          <div class="stat-value" id="kpi-steps">—</div>
+          <div class="stat-sub">Technique completeness</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--muted)">
+          <div class="stat-label">Total Assessments</div>
+          <div class="stat-value" id="kpi-total">0</div>
+          <div class="stat-sub">Observations recorded</div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4>Compliance by Category</h4>
+          <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4>Top Departments by Compliance</h4>
+          <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h4>Department Compliance Summary</h4>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Department</th><th>Assessments</th>
+                <th>Hand Sanitation</th><th>5 Moments</th>
+                <th>6 Steps</th><th>Overall</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBody">
+              <tr><td colspan="7"><div class="empty"><div class="empty-icon">📭</div><p>No data yet. Start an assessment.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASSESSMENT -->
+    <div class="view" id="view-assess">
+      <div class="page-title">New Assessment</div>
+      <p class="page-sub">Record a hand hygiene observation</p>
+      <div class="form-card">
+        <h3>🏥 Observation Details</h3>
+        <div class="form-grid">
+          <div class="field"><label>Department</label><select id="f-dept"><option value="">— Select —</option></select></div>
+          <div class="field"><label>Observer Name</label><input type="text" id="f-observer" placeholder="Full name"></div>
+          <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+          <div class="field">
+            <label>Staff Role Observed</label>
+            <select id="f-role">
+              <option value="">— Select —</option>
+              <option>Physician</option><option>Nurse</option><option>Midwife</option>
+              <option>Lab Technician</option><option>Nursing Student</option>
+              <option>Cleaner / Support Staff</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Shift</label>
+            <select id="f-shift">
+              <option>Morning (07:00–13:00)</option>
+              <option>Afternoon (13:00–19:00)</option>
+              <option>Night (19:00–07:00)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="cl-section">
+        <div class="cl-header">🧴 Category 1 — Hand Sanitation (7 items)</div>
+        <div class="cl-body" id="cl-sanitation"></div>
+      </div>
+      <div class="cl-section">
+        <div class="cl-header">🖐 Category 2 — Five Moments of Hand Hygiene (WHO)</div>
+        <div class="cl-body" id="cl-moments"></div>
+      </div>
+      <div class="cl-section">
+        <div class="cl-header">🔢 Category 3 — Six Steps of Hand Hygiene Technique</div>
+        <div class="cl-body" id="cl-steps"></div>
+      </div>
+      <div style="margin-top:18px">
+        <button class="btn-secondary" onclick="resetForm()">Reset</button>
+        <button class="btn-primary" onclick="submitAssessment()">💾 Save Assessment</button>
+      </div>
+    </div>
+
+    <!-- RECORDS -->
+    <div class="view" id="view-records">
+      <div class="page-title">Assessment Records</div>
+      <p class="page-sub">All saved observations — click <strong>📄 PDF</strong> to download an individual assessment report</p>
+      <div class="export-row">
+        <button class="btn-export" onclick="exportExcel()">📊 Export All (Excel)</button>
+        <button class="btn-export" onclick="exportSummaryPDF()">📄 Export Summary PDF</button>
+      </div>
+      <div class="records-wrap">
+        <div class="records-toolbar">
+          <h4 id="recordCount">0 records</h4>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input class="search-input" id="searchInput" placeholder="Search dept or observer…" oninput="renderRecords()">
+            <button class="btn-xs" onclick="syncFromGas()" id="syncBtn2">☁ Sync</button>
+            <button class="btn-xs" style="border-color:var(--bad);color:var(--bad)" onclick="clearAllRecords()">🗑 Clear All</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Date</th><th>Department</th><th>Observer</th>
+                <th>Role</th><th>Shift</th>
+                <th>Sanitation</th><th>5 Moments</th><th>6 Steps</th><th>Overall</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody">
+              <tr><td colspan="11"><div class="empty"><div class="empty-icon">🗂</div><p>No records yet.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxt8T4lTGVr2xtPuq3NosWlobad_DS3iPk9H5aQSV1mcfcRCbNrVaaX8uooWpTjOMjD/exec';
+
+const DEPARTMENTS = [
+  'OPD','Emergency','Hepatitis Clinic','NCD','ENT',
+  'Oral Health','Eye Unit','Dialysis','General Medicine',
+  'ICU','Operation Theater','Surgery A','Surgery B',
+  'Gynecology','Maternity','Laboratory','Imaging','Pediatry'
+];
+
+const DEPT_COLORS = [
+  '#00c2a8','#4f8ef7','#f7a84f','#f75f5f','#b06ef7',
+  '#5ef7c8','#f75fa8','#a8f75f','#5fa8f7','#f7e05f',
+  '#ff8c69','#9ef7a8','#f7c85f','#c85ff7','#5ff7e8',
+  '#f78c5f','#5fc8f7','#f75fd4'
+];
+
+const CHECKLIST = {
+  sanitation:[
+    {id:'s1',label:'ABHR (alcohol-based hand rub) available at point of care',sub:'Dispenser present and functional'},
+    {id:'s2',label:'Soap and clean water available at sink',sub:'Hand-washing facility accessible'},
+    {id:'s3',label:'Single-use paper towels or clean cloth for drying',sub:'No shared towel'},
+    {id:'s4',label:'Staff uses ABHR when hands are not visibly soiled',sub:'Correct product selected'},
+    {id:'s5',label:'Staff uses soap and water when hands are visibly dirty or after spore exposure',sub:'Correct indication followed'},
+    {id:'s6',label:'Sufficient volume of product used (2–3 mL ABHR; enough soap to lather)',sub:'Adequate quantity observed'},
+    {id:'s7',label:'No rings, bracelets, or artificial nails during clinical care',sub:'Bare below elbows policy'},
+  ],
+  moments:[
+    {id:'m1',label:'Moment 1 — Before touching a patient',sub:'Hand hygiene performed before patient contact'},
+    {id:'m2',label:'Moment 2 — Before a clean / aseptic procedure',sub:'Hand hygiene before aseptic task'},
+    {id:'m3',label:'Moment 3 — After body fluid exposure risk',sub:'Hand hygiene after blood / fluid exposure'},
+    {id:'m4',label:'Moment 4 — After touching a patient',sub:'Hand hygiene after patient contact'},
+    {id:'m5',label:'Moment 5 — After touching patient surroundings',sub:'Hand hygiene after patient environment'},
+  ],
+  steps:[
+    {id:'t1',label:'Step 1 — Apply ABHR to palm (or wet hands)',sub:'Adequate product applied'},
+    {id:'t2',label:'Step 2 — Rub palms together',sub:'Palm-to-palm coverage'},
+    {id:'t3',label:'Step 3 — Right palm over left dorsum, fingers interlaced; vice versa',sub:'Backs of hands covered'},
+    {id:'t4',label:'Step 4 — Palm to palm with fingers interlaced',sub:'Between fingers covered'},
+    {id:'t5',label:'Step 5 — Backs of fingers to opposing palms, fingers interlocked',sub:'Knuckles covered'},
+    {id:'t6',label:'Step 6 — Rotational rubbing of thumbs and fingertips',sub:'Thumbs and fingertips covered'},
+    {id:'t7',label:'Duration ≥ 20 sec (ABHR) or 40–60 sec (soap and water)',sub:'Adequate duration observed'},
+    {id:'t8',label:'Hands dried thoroughly; tap closed with towel (soap/water only)',sub:'Complete drying; correct tap-off technique'},
+  ]
+};
+
+// ── STATE ──────────────────────────────────────
+let records = JSON.parse(localStorage.getItem('hh_records')||'[]');
+let answers = {};
+let gasUrl  = localStorage.getItem('hh_gas_url') || GAS_URL;
+let catChart, deptChart;
+
+// ── INIT ───────────────────────────────────────
+function init() {
+  const now = new Date();
+  document.getElementById('todayBadge').textContent =
+    now.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+  document.getElementById('gasUrlInput').value = gasUrl;
+
+  const deptList = document.getElementById('deptList');
+  const sel = document.getElementById('f-dept');
+  DEPARTMENTS.forEach((d,i) => {
+    const div = document.createElement('div');
+    div.className='dept-item'; div.dataset.dept=d;
+    div.innerHTML=`<span class="dept-name">${d}</span><span class="dept-score score-warn" id="ds-${i}">—</span>`;
+    div.onclick=()=>{ document.querySelectorAll('.dept-item').forEach(x=>x.classList.remove('active')); div.classList.add('active'); document.getElementById('f-dept').value=d; switchTab('assess'); };
+    deptList.appendChild(div);
+    const opt=document.createElement('option'); opt.value=d; opt.textContent=d; sel.appendChild(opt);
+  });
+
+  buildCL('sanitation',CHECKLIST.sanitation);
+  buildCL('moments',CHECKLIST.moments);
+  buildCL('steps',CHECKLIST.steps);
+  renderAll();
+  updateGasStatus('sync');
+  setTimeout(pingGas,600);
+}
+
+function buildCL(cat,items) {
+  const el=document.getElementById(`cl-${cat}`); el.innerHTML='';
+  items.forEach(item=>{
+    const row=document.createElement('div'); row.className='check-row';
+    row.innerHTML=`<div class="check-label">${item.label}<span>${item.sub}</span></div>
+      <div class="radio-group">
+        <button class="radio-btn" data-id="${item.id}" onclick="setAns('${item.id}','yes',this)">YES</button>
+        <button class="radio-btn" data-id="${item.id}" onclick="setAns('${item.id}','no',this)">NO</button>
+        <button class="radio-btn" data-id="${item.id}" onclick="setAns('${item.id}','na',this)">N/A</button>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+// ── NAV ────────────────────────────────────────
+function switchTab(tab) {
+  ['dashboard','assess','records'].forEach((t,i)=>{
+    document.querySelectorAll('.nav-tab')[i].classList.toggle('active',t===tab);
+    document.getElementById(`view-${t}`).classList.toggle('active',t===tab);
+  });
+  if(tab==='dashboard') renderAll();
+  if(tab==='records')   renderRecords();
+}
+
+// ── ASSESSMENT ─────────────────────────────────
+function setAns(id,val,btn) {
+  answers[id]=val;
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(b=>b.classList.remove('sel-yes','sel-no','sel-na'));
+  btn.classList.add(`sel-${val}`);
+}
+
+function calcScore(ids) {
+  const rel=ids.filter(id=>answers[id]&&answers[id]!=='na');
+  return rel.length ? Math.round(rel.filter(id=>answers[id]==='yes').length/rel.length*100) : null;
+}
+
+async function submitAssessment() {
+  const dept=document.getElementById('f-dept').value;
+  const observer=document.getElementById('f-observer').value.trim();
+  const date=document.getElementById('f-date').value;
+  const role=document.getElementById('f-role').value;
+  const shift=document.getElementById('f-shift').value;
+  if(!dept||!observer||!date||!role){showToast('⚠️ Fill all required fields',true);return;}
+  const total=Object.values(CHECKLIST).flat().length;
+  if(Object.keys(answers).length<Math.ceil(total*.5)){showToast('⚠️ Answer at least 50% of items',true);return;}
+
+  const san=calcScore(CHECKLIST.sanitation.map(i=>i.id));
+  const mom=calcScore(CHECKLIST.moments.map(i=>i.id));
+  const stp=calcScore(CHECKLIST.steps.map(i=>i.id));
+  const all=[san,mom,stp].filter(x=>x!==null);
+  const overall=all.length?Math.round(all.reduce((a,b)=>a+b,0)/all.length):null;
+
+  const rec={id:Date.now(),dept,observer,date,role,shift,answers:{...answers},scores:{san,mom,stp,overall}};
+  records.push(rec); saveLocal();
+  showToast('✅ Saved locally!'); resetForm(); renderAll();
+
+  if(gasUrl){
+    updateGasStatus('sync');
+    try{
+      const p=new URLSearchParams({action:'save',payload:JSON.stringify(rec)});
+      const res=await fetch(`${gasUrl}?${p}`);
+      const j=await res.json();
+      j.ok?(showToast('☁ Synced to Google Sheet!'),updateGasStatus('ok')):(showToast('⚠ GAS: '+j.message,true),updateGasStatus('err'));
+    }catch(e){showToast('⚠ Cannot reach GAS',true);updateGasStatus('err');}
+  }
+}
+
+function resetForm() {
+  answers={};
+  document.querySelectorAll('.radio-btn').forEach(b=>b.classList.remove('sel-yes','sel-no','sel-na'));
+  ['f-observer','f-role','f-dept'].forEach(id=>document.getElementById(id).value='');
+}
+
+function clearAllRecords() {
+  if(!confirm('Delete ALL local records? This cannot be undone.')) return;
+  records=[];saveLocal();renderAll();renderRecords();showToast('🗑 Records cleared');
+}
+
+function deleteRecord(id) {
+  records=records.filter(r=>r.id!==id);saveLocal();renderAll();renderRecords();showToast('Record deleted');
+}
+
+function saveLocal(){localStorage.setItem('hh_records',JSON.stringify(records));}
+
+// ── GAS ────────────────────────────────────────
+function onGasUrlChange(){gasUrl=document.getElementById('gasUrlInput').value.trim();localStorage.setItem('hh_gas_url',gasUrl);updateGasStatus('idle');}
+
+function updateGasStatus(s){
+  const dot=document.getElementById('gasDot'),lbl=document.getElementById('gasLabel');
+  dot.className='gas-dot';
+  if(s==='ok'){dot.classList.add('ok');lbl.textContent='Cloud sync: Connected ✓';}
+  else if(s==='err'){dot.classList.add('err');lbl.textContent='Cloud sync: Cannot reach GAS ✗';}
+  else if(s==='sync'){dot.classList.add('sync');lbl.textContent='Cloud sync: Connecting…';}
+  else{lbl.textContent='Cloud sync: URL set — click Connect to verify';}
+}
+
+async function pingGas(){
+  if(!gasUrl){showToast('⚠ No GAS URL',true);return;}
+  updateGasStatus('sync');
+  try{const r=await fetch(`${gasUrl}?action=ping`);const j=await r.json();j.ok?(updateGasStatus('ok'),showToast('☁ GAS connected!')):(updateGasStatus('err'),showToast('⚠ GAS error',true));}
+  catch(e){updateGasStatus('err');showToast('⚠ Cannot reach GAS — check deployment settings',true);}
+}
+
+async function syncFromGas(){
+  if(!gasUrl){showToast('⚠ Configure GAS URL first',true);return;}
+  updateGasStatus('sync');
+  ['syncBtn','syncBtn2'].forEach(id=>{const b=document.getElementById(id);if(b)b.innerHTML='<span class="spinner"></span>';});
+  try{
+    const r=await fetch(`${gasUrl}?action=getAll`);const j=await r.json();
+    if(j.ok){
+      const gasIds=new Set(j.records.map(r=>String(r.id)));
+      records=[...j.records,...records.filter(r=>!gasIds.has(String(r.id)))];
+      saveLocal();renderAll();renderRecords();updateGasStatus('ok');
+      showToast(`☁ Pulled ${j.records.length} records from Sheet`);
+    }else{updateGasStatus('err');showToast('⚠ Sync failed: '+j.message,true);}
+  }catch(e){updateGasStatus('err');showToast('⚠ Cannot reach GAS',true);}
+  finally{document.getElementById('syncBtn').innerHTML='☁ Pull from Sheet';const b2=document.getElementById('syncBtn2');if(b2)b2.innerHTML='☁ Sync';}
+}
+
+// ── HELPERS ────────────────────────────────────
+const avg   = arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
+const scCol = v=>v===null?'var(--muted)':v>=75?'var(--good)':v>=50?'var(--warn)':'var(--bad)';
+const scCls = v=>v===null?'score-warn':v>=75?'score-good':v>=50?'score-warn':'score-bad';
+const scRGB = v=>v===null?[107,127,163]:v>=75?[0,194,168]:v>=50?[247,168,79]:[247,95,95];
+
+function statusBadge(v){
+  if(v===null)return`<span class="badge" style="background:rgba(107,127,163,.15);color:var(--muted)">—</span>`;
+  if(v>=75)return`<span class="badge" style="background:rgba(0,194,168,.15);color:var(--good)">✓ Good</span>`;
+  if(v>=50)return`<span class="badge" style="background:rgba(247,168,79,.15);color:var(--warn)">⚠ Needs Improvement</span>`;
+  return`<span class="badge" style="background:rgba(247,95,95,.15);color:var(--bad)">✗ Poor</span>`;
+}
+function fmt(v){return v!==null&&v!==undefined?`<span style="color:${scCol(v)};font-family:var(--mono);font-weight:600">${v}%</span>`:`<span style="color:var(--muted)">—</span>`;}
+function pBar(v){if(v===null)return fmt(v);return`<div style="display:flex;align-items:center;gap:7px">${fmt(v)}<div class="prog-bar"><div class="prog-fill" style="width:${v}%;background:${scCol(v)}"></div></div></div>`;}
+
+function buildDD(){
+  const dd={};DEPARTMENTS.forEach(d=>{dd[d]={san:[],mom:[],stp:[],overall:[],count:0};});
+  records.forEach(r=>{if(!dd[r.dept])return;const d=dd[r.dept];d.count++;
+    if(r.scores.san!==null)d.san.push(r.scores.san);if(r.scores.mom!==null)d.mom.push(r.scores.mom);
+    if(r.scores.stp!==null)d.stp.push(r.scores.stp);if(r.scores.overall!==null)d.overall.push(r.scores.overall);
+  });return dd;
+}
+
+// ── RENDER ─────────────────────────────────────
+function renderAll(){
+  const dd=buildDD();
+  const allOv=records.filter(r=>r.scores.overall!==null).map(r=>r.scores.overall);
+  const allSan=records.filter(r=>r.scores.san!==null).map(r=>r.scores.san);
+  const allMom=records.filter(r=>r.scores.mom!==null).map(r=>r.scores.mom);
+  const allStp=records.filter(r=>r.scores.stp!==null).map(r=>r.scores.stp);
+
+  const setK=(id,arr)=>{const v=avg(arr);const el=document.getElementById(id);el.textContent=v!==null?`${v}%`:'—';el.style.color=scCol(v);};
+  setK('kpi-overall',allOv);setK('kpi-san',allSan);setK('kpi-moments',allMom);setK('kpi-steps',allStp);
+  document.getElementById('kpi-total').textContent=records.length;
+
+  DEPARTMENTS.forEach((d,i)=>{const el=document.getElementById(`ds-${i}`);const v=avg(dd[d].overall);if(el){el.textContent=v!==null?`${v}%`:'—';el.className=`dept-score ${scCls(v)}`;}});
+
+  const tbody=document.getElementById('summaryBody');tbody.innerHTML='';let any=false;
+  DEPARTMENTS.forEach((d,i)=>{const x=dd[d];if(!x.count)return;any=true;
+    const ov=avg(x.overall),sv=avg(x.san),mv=avg(x.mom),tv=avg(x.stp);
+    tbody.innerHTML+=`<tr><td><span class="dept-dot" style="background:${DEPT_COLORS[i]}"></span>${d}</td><td style="font-family:var(--mono)">${x.count}</td><td>${pBar(sv)}</td><td>${pBar(mv)}</td><td>${pBar(tv)}</td><td>${pBar(ov)}</td><td>${statusBadge(ov)}</td></tr>`;
+  });
+  if(!any)tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📭</div><p>No data yet.</p></div></td></tr>`;
+
+  // Charts
+  const cCtx=document.getElementById('categoryChart').getContext('2d');
+  if(catChart)catChart.destroy();
+  catChart=new Chart(cCtx,{type:'doughnut',data:{labels:['Hand Sanitation','5 Moments','6 Steps'],datasets:[{data:[avg(allSan)??0,avg(allMom)??0,avg(allStp)??0],backgroundColor:['rgba(0,194,168,.85)','rgba(79,142,247,.85)','rgba(176,110,247,.85)'],borderColor:['#0a0f1e','#0a0f1e','#0a0f1e'],borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#6b7fa3',font:{size:11},padding:14}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}}}}});
+
+  const dCtx=document.getElementById('deptChart').getContext('2d');
+  if(deptChart)deptChart.destroy();
+  const sorted=DEPARTMENTS.map((d,i)=>({d,v:avg(dd[d].overall)??0,c:DEPT_COLORS[i]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10);
+  deptChart=new Chart(dCtx,{type:'bar',data:{labels:sorted.map(x=>x.d),datasets:[{label:'Overall %',data:sorted.map(x=>x.v),backgroundColor:sorted.map(x=>x.c+'cc'),borderColor:sorted.map(x=>x.c),borderWidth:1.5,borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x}%`}}},scales:{x:{min:0,max:100,ticks:{color:'#6b7fa3',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.04)'},border:{color:'transparent'}},y:{ticks:{color:'#e8edf5',font:{size:10}},grid:{display:false},border:{color:'transparent'}}}}});
+}
+
+function renderRecords(){
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const f=records.filter(r=>r.dept.toLowerCase().includes(q)||r.observer.toLowerCase().includes(q)).sort((a,b)=>b.id-a.id);
+  document.getElementById('recordCount').textContent=`${f.length} record${f.length!==1?'s':''}`;
+  const tbody=document.getElementById('recordsBody');
+  if(!f.length){tbody.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="empty-icon">🗂</div><p>No records found.</p></div></td></tr>`;return;}
+  tbody.innerHTML=f.map((r,i)=>`<tr>
+    <td style="color:var(--muted);font-family:var(--mono)">${f.length-i}</td>
+    <td style="font-family:var(--mono);font-size:11px">${r.date}</td>
+    <td><strong>${r.dept}</strong></td>
+    <td>${r.observer}</td>
+    <td style="color:var(--muted);font-size:11px">${r.role||''}</td>
+    <td style="color:var(--muted);font-size:11px">${(r.shift||'').split(' ')[0]}</td>
+    <td>${fmt(r.scores.san)}</td>
+    <td>${fmt(r.scores.mom)}</td>
+    <td>${fmt(r.scores.stp)}</td>
+    <td>${fmt(r.scores.overall)}</td>
+    <td><div class="tbl-actions">
+      <button class="btn-tbl" onclick="exportRecordPDF(${r.id})">📄 PDF</button>
+      <button class="btn-tbl del" onclick="deleteRecord(${r.id})">🗑</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+// ── EXPORT EXCEL ───────────────────────────────
+function exportExcel(){
+  if(!records.length){showToast('No records to export',true);return;}
+  const wb=XLSX.utils.book_new();const dd=buildDD();
+  const s1=[['Department','Assessments','Sanitation (%)','5 Moments (%)','6 Steps (%)','Overall (%)','Status']];
+  DEPARTMENTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.overall);s1.push([d,x.count,avg(x.san)??'—',avg(x.mom)??'—',avg(x.stp)??'—',ov??'—',ov===null?'No data':ov>=75?'Good':ov>=50?'Needs Improvement':'Poor']);});
+  const ws1=XLSX.utils.aoa_to_sheet(s1);ws1['!cols']=[{wch:20},{wch:14},{wch:16},{wch:16},{wch:14},{wch:12},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Summary');
+  const s2=[['ID','Date','Department','Observer','Role','Shift','Sanitation (%)','5 Moments (%)','6 Steps (%)','Overall (%)','S1','S2','S3','S4','S5','S6','S7','M1','M2','M3','M4','M5','T1','T2','T3','T4','T5','T6','T7','T8']];
+  records.forEach(r=>{const a=r.answers||{};s2.push([r.id,r.date,r.dept,r.observer,r.role,r.shift,r.scores.san??'',r.scores.mom??'',r.scores.stp??'',r.scores.overall??'',a.s1||'',a.s2||'',a.s3||'',a.s4||'',a.s5||'',a.s6||'',a.s7||'',a.m1||'',a.m2||'',a.m3||'',a.m4||'',a.m5||'',a.t1||'',a.t2||'',a.t3||'',a.t4||'',a.t5||'',a.t6||'',a.t7||'',a.t8||'']);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Raw Records');
+  XLSX.writeFile(wb,`KCPH_HandHygiene_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('📊 Excel exported!');
+}
+
+// ── EXPORT SUMMARY PDF ─────────────────────────
+function exportSummaryPDF(){
+  if(!records.length){showToast('No records to export',true);return;}
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const dt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const dd=buildDD();
+
+  doc.setFillColor(10,15,30);doc.rect(0,0,297,30,'F');
+  doc.setTextColor(0,194,168);doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Monitoring — Summary Report',14,12);
+  doc.setFontSize(9);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,20);
+  doc.text(`Generated: ${dt}  |  Total assessments: ${records.length}`,14,26);
+
+  const allOv=records.filter(r=>r.scores.overall!==null).map(r=>r.scores.overall);
+  const allSan=records.filter(r=>r.scores.san!==null).map(r=>r.scores.san);
+  const allMom=records.filter(r=>r.scores.mom!==null).map(r=>r.scores.mom);
+  const allStp=records.filter(r=>r.scores.stp!==null).map(r=>r.scores.stp);
+  const kpis=[{label:'Overall',val:avg(allOv)},{label:'Sanitation',val:avg(allSan)},{label:'5 Moments',val:avg(allMom)},{label:'6 Steps',val:avg(allStp)},{label:'Assessments',val:records.length,raw:true}];
+  let kx=14;
+  kpis.forEach(k=>{doc.setFillColor(22,31,50);doc.roundedRect(kx,33,52,18,2,2,'F');doc.setFontSize(7);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');doc.text(k.label.toUpperCase(),kx+3,39);const col=k.raw?[200,213,229]:scRGB(k.val);doc.setTextColor(...col);doc.setFontSize(13);doc.setFont('helvetica','bold');doc.text(k.val!==null?`${k.val}${k.raw?'':'%'}`:'—',kx+3,49);kx+=55;});
+
+  const rows=[];
+  DEPARTMENTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.overall);rows.push([d,x.count,avg(x.san)!==null?`${avg(x.san)}%`:'—',avg(x.mom)!==null?`${avg(x.mom)}%`:'—',avg(x.stp)!==null?`${avg(x.stp)}%`:'—',ov!==null?`${ov}%`:'—',ov===null?'No data':ov>=75?'Good':ov>=50?'Needs Improvement':'Poor']);});
+
+  doc.autoTable({head:[['Department','Assessments','Sanitation %','5 Moments %','6 Steps %','Overall %','Status']],body:rows,startY:55,styles:{fontSize:9,cellPadding:3},headStyles:{fillColor:[10,15,30],textColor:[0,194,168],fontStyle:'bold'},alternateRowStyles:{fillColor:[22,31,50]},bodyStyles:{fillColor:[17,24,39],textColor:[232,237,245]},
+    didParseCell:data=>{
+      if(data.column.index===6&&data.section==='body'){const t=data.cell.raw;data.cell.styles.textColor=t==='Good'?[0,194,168]:t==='Needs Improvement'?[247,168,79]:t==='Poor'?[247,95,95]:[107,127,163];}
+      if(data.column.index>=2&&data.column.index<=5&&data.section==='body'){const v=parseInt(data.cell.raw);if(!isNaN(v))data.cell.styles.textColor=scRGB(v);}
+    }
+  });
+
+  const pg=doc.getNumberOfPages();
+  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');doc.text(`KCPH IPC Program · Confidential | Page ${p} of ${pg}`,14,205);doc.text(`Generated: ${dt}`,240,205);}
+  doc.save(`KCPH_HandHygiene_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast('📄 Summary PDF exported!');
+}
+
+// ── EXPORT INDIVIDUAL RECORD PDF ───────────────
+function exportRecordPDF(id){
+  const r=records.find(x=>x.id===id);
+  if(!r){showToast('Record not found',true);return;}
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const a=r.answers||{};
+  const printDt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+  // Header band
+  doc.setFillColor(10,15,30);doc.rect(0,0,210,32,'F');
+  doc.setTextColor(0,194,168);doc.setFontSize(14);doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Observation Report',14,13);
+  doc.setFontSize(8.5);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,21);
+  doc.text(`Printed: ${printDt}`,14,27);
+
+  // Info boxes
+  doc.setFillColor(22,31,50);doc.roundedRect(10,36,190,26,2,2,'F');
+  const info=[{label:'Date',val:r.date},{label:'Department',val:r.dept},{label:'Observer',val:r.observer},{label:'Role',val:r.role},{label:'Shift',val:(r.shift||'').split(' ')[0]}];
+  let ix=14;
+  info.forEach(f=>{
+    doc.setFontSize(7.5);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');doc.text(f.label.toUpperCase(),ix,43);
+    doc.setFontSize(9);doc.setTextColor(232,237,245);doc.setFont('helvetica','bold');doc.text(f.val||'—',ix,51);
+    ix+=38;
+  });
+
+  // Score cards
+  const scores=[{label:'Hand Sanitation',val:r.scores.san},{label:'5 Moments',val:r.scores.mom},{label:'6 Steps',val:r.scores.stp},{label:'OVERALL',val:r.scores.overall,bold:true}];
+  let sx=14;
+  scores.forEach(s=>{
+    const col=scRGB(s.val);
+    doc.setFillColor(17,24,39);doc.roundedRect(sx,66,44,20,2,2,'F');
+    doc.setDrawColor(...col);doc.setLineWidth(.5);doc.roundedRect(sx,66,44,20,2,2,'S');
+    doc.setFontSize(7);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');doc.text(s.label.toUpperCase(),sx+3,73);
+    doc.setFontSize(s.bold?14:13);doc.setTextColor(...col);doc.setFont('helvetica','bold');doc.text(s.val!==null?`${s.val}%`:'—',sx+3,83);
+    sx+=47;
+  });
+
+  // Checklist tables
+  const tBase={styles:{fontSize:8.5,cellPadding:2.8},headStyles:{fillColor:[10,15,30],textColor:[0,194,168],fontStyle:'bold'},alternateRowStyles:{fillColor:[22,31,50]},bodyStyles:{fillColor:[17,24,39],textColor:[232,237,245]},columnStyles:{0:{cellWidth:160},1:{cellWidth:20,halign:'center'}},
+    didParseCell:data=>{if(data.column.index===1&&data.section==='body'){const v=data.cell.raw;data.cell.styles.textColor=v==='YES'?[0,194,168]:v==='NO'?[247,95,95]:[107,127,163];data.cell.styles.fontStyle='bold';}}
+  };
+
+  const mkRows=items=>items.map(item=>([item.label,(a[item.id]||'').toUpperCase()||'—']));
+
+  doc.autoTable({...tBase,head:[['Category 1 — Hand Sanitation','Result']],body:mkRows(CHECKLIST.sanitation),startY:92});
+  doc.autoTable({...tBase,head:[['Category 2 — Five Moments of Hand Hygiene (WHO)','Result']],body:mkRows(CHECKLIST.moments),startY:doc.lastAutoTable.finalY+6});
+  doc.autoTable({...tBase,head:[['Category 3 — Six Steps of Hand Hygiene Technique','Result']],body:mkRows(CHECKLIST.steps),startY:doc.lastAutoTable.finalY+6});
+
+  // Remarks section
+  const fy=doc.lastAutoTable.finalY+8;
+  if(fy<252){
+    doc.setFillColor(17,24,39);doc.roundedRect(10,fy,190,30,2,2,'F');
+    doc.setFontSize(8);doc.setTextColor(107,127,163);doc.setFont('helvetica','bold');
+    doc.text('OBSERVER REMARKS / RECOMMENDATIONS',14,fy+8);
+    doc.setDrawColor(30,45,69);doc.setLineWidth(.3);
+    for(let ln=0;ln<3;ln++)doc.line(14,fy+14+(ln*6),196,fy+14+(ln*6));
+  }
+
+  // Signature row
+  const sy=Math.max(fy+38,262);
+  if(sy<278){
+    doc.setFontSize(8);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');
+    doc.text('Observer Signature: ___________________________',14,sy);
+    doc.text('Date: _______________',140,sy);
+  }
+
+  // Footer
+  doc.setFontSize(7);doc.setTextColor(107,127,163);doc.setFont('helvetica','normal');
+  doc.text('KCPH IPC Program · Confidential',14,290);
+  doc.text(`Assessment ID: ${r.id}`,130,290);
+
+  doc.save(`KCPH_HH_${r.dept.replace(/\s+/g,'_')}_${r.date}.pdf`);
+  showToast(`📄 PDF downloaded for ${r.dept}`);
+}
+
+// ── TOAST ──────────────────────────────────────
+function showToast(msg,isError=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=isError?'var(--danger)':'var(--accent)';t.style.color=isError?'#fff':'#000';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
