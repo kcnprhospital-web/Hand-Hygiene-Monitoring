@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ការតាមដានអនាម័យដៃ — KCPH</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&family=Hanuman:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- SheetJS for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- jsPDF for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0f1e; --surface: #111827; --card: #161f32; --border: #1e2d45;
+    --accent: #00c2a8; --accent2: #4f8ef7; --accent3: #f7a84f;
+    --danger: #f75f5f; --text: #e8edf5; --muted: #6b7fa3;
+    --good: #00c2a8; --warn: #f7a84f; --bad: #f75f5f; --radius: 12px;
+    --font-km: 'Hanuman', serif;
+    --font-en: 'Sora', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-en); font-size:14px; min-height:100vh; }
+  .km { font-family:var(--font-km); }
+
+  /* ── Header ── */
+  header {
+    background:linear-gradient(135deg,#0d1b35,#0a1628);
+    border-bottom:1px solid var(--border);
+    padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100;
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:38px;height:38px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:10px; display:flex; align-items:center; justify-content:center;
+    font-size:18px; box-shadow:0 0 18px rgba(0,194,168,.35);
+  }
+  .logo-text h1 { font-size:14px; font-weight:700; }
+  .logo-text p { font-size:10px; color:var(--muted); font-family:var(--font-mono); margin-top:2px; }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .lang-toggle {
+    display:flex; border:1px solid var(--border); border-radius:20px; overflow:hidden;
+  }
+  .lang-btn {
+    padding:5px 12px; font-size:11px; font-weight:600; cursor:pointer;
+    background:none; border:none; color:var(--muted); font-family:var(--font-mono);
+    transition:all .2s;
+  }
+  .lang-btn.active { background:var(--accent); color:#000; }
+  .today-badge {
+    font-family:var(--font-mono); font-size:11px; color:var(--muted);
+    background:var(--card); border:1px solid var(--border);
+    padding:5px 12px; border-radius:20px;
+  }
+
+  /* ── GAS Status ── */
+  .gas-bar {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:6px 24px; display:flex; align-items:center; gap:10px; font-size:11px;
+  }
+  .gas-dot { width:8px;height:8px;border-radius:50%;background:var(--muted); flex-shrink:0; }
+  .gas-dot.ok   { background:var(--good); box-shadow:0 0 6px rgba(0,194,168,.5); }
+  .gas-dot.err  { background:var(--bad); }
+  .gas-dot.sync { animation:pulse .8s infinite; background:var(--warn); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .gas-label { color:var(--muted); }
+  .gas-url-input {
+    flex:1; max-width:420px;
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:6px; padding:4px 10px; font-size:11px; font-family:var(--font-mono);
+    outline:none;
+  }
+  .gas-url-input:focus { border-color:var(--accent); }
+  .btn-xs {
+    padding:4px 12px; border-radius:6px; font-size:11px; cursor:pointer;
+    border:1px solid var(--border); background:var(--card); color:var(--text);
+    font-family:var(--font-en); transition:border .2s;
+  }
+  .btn-xs:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── Nav Tabs ── */
+  .nav-tabs {
+    display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px;
+  }
+  .nav-tab {
+    padding:13px 20px; font-size:13px; font-weight:500; color:var(--muted);
+    cursor:pointer; border:none; border-bottom:2px solid transparent;
+    background:none; transition:all .2s; white-space:nowrap;
+  }
+  .nav-tab:hover { color:var(--text); }
+  .nav-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  /* ── Layout ── */
+  .main { display:flex; min-height:calc(100vh - 145px); }
+  .sidebar {
+    width:210px; background:var(--surface); border-right:1px solid var(--border);
+    padding:14px 0; flex-shrink:0; overflow-y:auto;
+  }
+  .sidebar-label {
+    font-family:var(--font-mono); font-size:10px; color:var(--muted);
+    letter-spacing:1.2px; text-transform:uppercase; padding:0 14px 8px;
+  }
+  .dept-item {
+    padding:8px 14px; display:flex; align-items:center; justify-content:space-between;
+    cursor:pointer; transition:background .15s; border-left:3px solid transparent;
+  }
+  .dept-item:hover { background:var(--card); }
+  .dept-item.active { background:rgba(0,194,168,.08); border-left-color:var(--accent); }
+  .dept-name { font-size:12px; font-weight:500; }
+  .dept-score { font-family:var(--font-mono); font-size:11px; padding:2px 7px; border-radius:20px; font-weight:500; }
+  .score-good { background:rgba(0,194,168,.15); color:var(--good); }
+  .score-warn { background:rgba(247,168,79,.15); color:var(--warn); }
+  .score-bad  { background:rgba(247,95,95,.15);  color:var(--bad); }
+
+  /* ── Content ── */
+  .content { flex:1; padding:22px 26px; overflow-y:auto; }
+  .view { display:none; } .view.active { display:block; }
+  .page-title { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .page-sub   { font-size:12px; color:var(--muted); margin-bottom:22px; }
+
+  /* ── KPI ── */
+  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:22px; }
+  .stat-card {
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; position:relative; overflow:hidden;
+  }
+  .stat-card::before { content:''; position:absolute; top:0;left:0;right:0;height:2px; background:var(--accent-color,var(--accent)); }
+  .stat-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; font-family:var(--font-mono); margin-bottom:7px; }
+  .stat-value { font-size:26px; font-weight:700; font-family:var(--font-mono); color:var(--accent-color,var(--accent)); line-height:1; }
+  .stat-sub   { font-size:10px; color:var(--muted); margin-top:4px; }
+
+  /* ── Charts ── */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:20px; }
+  .chart-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+  .chart-card h4 { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); font-family:var(--font-mono); margin-bottom:14px; }
+  .chart-wrap { position:relative; height:210px; }
+
+  /* ── Form ── */
+  .form-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin-bottom:20px; }
+  .form-card h3 { font-size:13px; font-weight:600; margin-bottom:16px; display:flex;align-items:center;gap:8px; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:16px; }
+  .field { display:flex; flex-direction:column; gap:5px; }
+  .field label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; font-family:var(--font-mono); }
+  .field select, .field input {
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:8px 12px; font-size:13px; font-family:var(--font-en);
+    outline:none; transition:border .2s; appearance:none;
+  }
+  .field select:focus,.field input:focus { border-color:var(--accent); }
+
+  /* ── Checklist ── */
+  .cl-section { background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:12px; overflow:hidden; }
+  .cl-header  { padding:11px 16px; font-size:13px; font-weight:600; background:rgba(255,255,255,.02); border-bottom:1px solid var(--border); }
+  .cl-body    { padding:12px 16px; }
+  .check-row  { display:flex; align-items:flex-start; gap:12px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+  .check-row:last-child { border-bottom:none; }
+  .check-label { flex:1; font-size:12.5px; line-height:1.4; }
+  .check-label span { display:block; font-size:11px; color:var(--muted); margin-top:2px; }
+  .radio-group { display:flex; gap:5px; flex-shrink:0; padding-top:2px; }
+  .radio-btn {
+    padding:4px 11px; border-radius:20px; border:1px solid var(--border);
+    background:none; color:var(--muted); cursor:pointer;
+    font-size:11px; font-weight:600; font-family:var(--font-mono);
+    transition:all .15s; white-space:nowrap;
+  }
+  .radio-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .radio-btn.sel-yes { background:rgba(0,194,168,.15);  border-color:var(--good); color:var(--good); }
+  .radio-btn.sel-no  { background:rgba(247,95,95,.15);  border-color:var(--bad);  color:var(--bad); }
+  .radio-btn.sel-na  { background:rgba(107,127,163,.15);border-color:var(--muted);color:var(--muted); }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    background:linear-gradient(135deg,var(--accent),#00a894); color:#000;
+    border:none; border-radius:8px; padding:10px 24px;
+    font-size:13px; font-weight:700; font-family:var(--font-en); cursor:pointer;
+    transition:opacity .2s,transform .15s; box-shadow:0 4px 14px rgba(0,194,168,.3);
+  }
+  .btn-primary:hover { opacity:.9; transform:translateY(-1px); }
+  .btn-secondary {
+    background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:10px 18px; font-size:13px; font-family:var(--font-en);
+    cursor:pointer; transition:border .2s; margin-right:8px;
+  }
+  .btn-secondary:hover { border-color:var(--accent); }
+  .export-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+  .btn-export {
+    display:flex; align-items:center; gap:6px;
+    padding:8px 16px; border-radius:8px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); cursor:pointer;
+    font-size:12px; font-family:var(--font-en); font-weight:500;
+    transition:all .2s;
+  }
+  .btn-export:hover { border-color:var(--accent2); color:var(--accent2); }
+
+  /* ── Records ── */
+  .records-wrap { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .records-toolbar {
+    padding:12px 18px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .records-toolbar h4 { font-size:13px; font-weight:600; }
+  .search-input {
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:6px 12px; font-size:12px; font-family:var(--font-en);
+    outline:none; width:180px;
+  }
+  .search-input:focus { border-color:var(--accent); }
+
+  /* ── Table ── */
+  .data-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .data-table th {
+    text-align:left; padding:9px 12px;
+    font-family:var(--font-mono); font-size:10px; text-transform:uppercase;
+    letter-spacing:.8px; color:var(--muted); border-bottom:1px solid var(--border);
+  }
+  .data-table td { padding:9px 12px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+  .data-table tr:hover td { background:rgba(255,255,255,.02); }
+  .dept-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px; }
+  .prog-bar { height:5px; background:var(--border); border-radius:3px; overflow:hidden; width:70px; }
+  .prog-fill { height:100%; border-radius:3px; }
+  .badge { display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;font-family:var(--font-mono); }
+
+  /* ── Toast ── */
+  .toast {
+    position:fixed; bottom:24px; right:24px;
+    background:var(--accent); color:#000; padding:11px 20px; border-radius:10px;
+    font-weight:600; font-size:13px; box-shadow:0 8px 24px rgba(0,194,168,.4);
+    transform:translateY(80px); opacity:0;
+    transition:all .35s cubic-bezier(.22,.68,0,1.2); z-index:999;
+  }
+  .toast.show { transform:translateY(0); opacity:1; }
+
+  /* ── Empty ── */
+  .empty { text-align:center;padding:40px;color:var(--muted); }
+  .empty .empty-icon { font-size:36px;margin-bottom:10px; }
+  .empty p { font-size:12px; }
+
+  /* ── Spinner ── */
+  .spinner {
+    width:14px;height:14px; border:2px solid rgba(0,194,168,.3);
+    border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite;
+    display:inline-block;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  ::-webkit-scrollbar { width:4px;height:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border);border-radius:2px; }
+
+  @media(max-width:768px) {
+    .charts-grid { grid-template-columns:1fr; }
+    .sidebar { width:160px; }
+    .content { padding:14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧴</div>
+    <div class="logo-text">
+      <h1 id="app-title">ការតាមដានអនាម័យដៃ · Hand Hygiene Monitoring</h1>
+      <p>មន្ទីរពេទ្យខេត្តកំពង់ឆ្នាំង · Kampong Chhnang Provincial Hospital — IPC</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="lang-toggle">
+      <button class="lang-btn" id="btn-km" onclick="setLang('km')">ខ្មែរ</button>
+      <button class="lang-btn active" id="btn-en" onclick="setLang('en')">EN</button>
+    </div>
+    <div class="today-badge" id="todayBadge"></div>
+  </div>
+</header>
+
+<!-- GAS Status Bar -->
+<div class="gas-bar">
+  <div class="gas-dot" id="gasDot"></div>
+  <span class="gas-label" id="gasLabel">Cloud sync: not configured</span>
+  <input class="gas-url-input" id="gasUrl" placeholder="Paste your Google Apps Script Web App URL here…" oninput="saveGasUrl()">
+  <button class="btn-xs" onclick="pingGas()">🔗 Connect</button>
+  <button class="btn-xs" onclick="syncFromGas()">☁ Pull</button>
+</div>
+
+<!-- Nav Tabs -->
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('dashboard')" data-en="📊 Dashboard" data-km="📊 ផ្ទាំងព័ត៌មាន">📊 Dashboard</button>
+  <button class="nav-tab" onclick="switchTab('assess')"   data-en="📋 New Assessment" data-km="📋 វាយតម្លៃថ្មី">📋 New Assessment</button>
+  <button class="nav-tab" onclick="switchTab('records')"  data-en="🗂 Records" data-km="🗂 កំណត់ត្រា">🗂 Records</button>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-label" data-en="Departments" data-km="នាយកដ្ឋាន">Departments</div>
+    <div id="deptList"></div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-title" data-en="Overview Dashboard" data-km="ផ្ទាំងព័ត៌មានទូទៅ">Overview Dashboard</div>
+      <p class="page-sub" data-en="Real-time compliance across all departments and categories" data-km="ការអនុលោមភាពជាក់ស្តែងនៅគ្រប់នាយកដ្ឋាន">Real-time compliance across all departments and categories</p>
+
+      <div class="export-row">
+        <button class="btn-export" onclick="exportExcel()">📊 <span data-en="Export Excel" data-km="នាំចេញ Excel">Export Excel</span></button>
+        <button class="btn-export" onclick="exportPDF()">📄 <span data-en="Export PDF Report" data-km="នាំចេញ PDF">Export PDF Report</span></button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card" style="--accent-color:var(--accent)">
+          <div class="stat-label" data-en="Overall Compliance" data-km="ការអនុលោមភាពសរុប">Overall Compliance</div>
+          <div class="stat-value" id="kpi-overall">—</div>
+          <div class="stat-sub" data-en="All depts · all categories" data-km="គ្រប់នាយកដ្ឋាន">All depts · all categories</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--accent2)">
+          <div class="stat-label" data-en="Hand Sanitation" data-km="អនាម័យដៃ">Hand Sanitation</div>
+          <div class="stat-value" id="kpi-san">—</div>
+          <div class="stat-sub" data-en="Product use &amp; availability" data-km="ការប្រើប្រាស់ផលិតផល">Product use &amp; availability</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--accent3)">
+          <div class="stat-label" data-en="5 Moments" data-km="ពេល ៥ ក្នុងការលាងដៃ">5 Moments</div>
+          <div class="stat-value" id="kpi-moments">—</div>
+          <div class="stat-sub" data-en="WHO 5-moment compliance" data-km="ស្តង់ដារ WHO">WHO 5-moment compliance</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#b06ef7">
+          <div class="stat-label" data-en="6 Steps" data-km="ជំហាន ៦ ក្នុងការលាងដៃ">6 Steps</div>
+          <div class="stat-value" id="kpi-steps">—</div>
+          <div class="stat-sub" data-en="Technique completeness" data-km="ភាពពេញលេញនៃបច្ចេកទេស">Technique completeness</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--muted)">
+          <div class="stat-label" data-en="Total Assessments" data-km="ការវាយតម្លៃសរុប">Total Assessments</div>
+          <div class="stat-value" id="kpi-total">0</div>
+          <div class="stat-sub" data-en="Observations recorded" data-km="ការសង្កេតត្រូវបានកត់ត្រា">Observations recorded</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4 data-en="Compliance by Category" data-km="ការអនុលោមភាពតាមប្រភេទ">Compliance by Category</h4>
+          <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4 data-en="Top Departments by Compliance" data-km="នាយកដ្ឋានកំពូលតាមការអនុលោម">Top Departments by Compliance</h4>
+          <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h4 data-en="Department Compliance Summary" data-km="សង្ខេបការអនុលោមភាពតាមនាយកដ្ឋាន">Department Compliance Summary</h4>
+        <div style="overflow-x:auto;margin-top:12px">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-en="Department" data-km="នាយកដ្ឋាន">Department</th>
+                <th data-en="Assessments" data-km="ការវាយតម្លៃ">Assessments</th>
+                <th data-en="Hand Sanitation" data-km="អនាម័យដៃ">Hand Sanitation</th>
+                <th data-en="5 Moments" data-km="ពេល ៥">5 Moments</th>
+                <th data-en="6 Steps" data-km="ជំហាន ៦">6 Steps</th>
+                <th data-en="Overall" data-km="សរុប">Overall</th>
+                <th data-en="Status" data-km="ស្ថានភាព">Status</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBody">
+              <tr><td colspan="7"><div class="empty"><div class="empty-icon">📭</div><p data-en="No data yet. Start an assessment." data-km="មិនទាន់មានទិន្នន័យ។">No data yet. Start an assessment.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ASSESSMENT ═══ -->
+    <div class="view" id="view-assess">
+      <div class="page-title" data-en="New Assessment" data-km="ការវាយតម្លៃថ្មី">New Assessment</div>
+      <p class="page-sub" data-en="Record a hand hygiene observation" data-km="កត់ត្រាការសង្កេតអនាម័យដៃ">Record a hand hygiene observation</p>
+
+      <div class="form-card">
+        <h3>🏥 <span data-en="Observation Details" data-km="ព័ត៌មានការសង្កេត">Observation Details</span></h3>
+        <div class="form-grid">
+          <div class="field">
+            <label data-en="Department" data-km="នាយកដ្ឋាន">Department</label>
+            <select id="f-dept"><option value="">—</option></select>
+          </div>
+          <div class="field">
+            <label data-en="Observer Name" data-km="ឈ្មោះអ្នកសង្កេត">Observer Name</label>
+            <input type="text" id="f-observer" placeholder="Full name / ឈ្មោះពេញ">
+          </div>
+          <div class="field">
+            <label data-en="Date" data-km="កាលបរិច្ឆេទ">Date</label>
+            <input type="date" id="f-date">
+          </div>
+          <div class="field">
+            <label data-en="Staff Role Observed" data-km="តួនាទីបុគ្គលិក">Staff Role Observed</label>
+            <select id="f-role">
+              <option value="">—</option>
+              <option data-en="Physician" data-km="វេជ្ជបណ្ឌិត">Physician</option>
+              <option data-en="Nurse" data-km="គិលានុបដ្ឋាក">Nurse</option>
+              <option data-en="Midwife" data-km="អ្នកសម្ភព">Midwife</option>
+              <option data-en="Lab Technician" data-km="បច្ចេកទេសមន្ទីរពិសោធន៍">Lab Technician</option>
+              <option data-en="Nursing Student" data-km="និស្សិតគិលានុបដ្ឋាក">Nursing Student</option>
+              <option data-en="Cleaner / Support Staff" data-km="អ្នកសំអាត / បុគ្គលិកជំនួយ">Cleaner / Support Staff</option>
+              <option data-en="Other" data-km="ផ្សេងៗ">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-en="Shift" data-km="វេន">Shift</label>
+            <select id="f-shift">
+              <option>Morning (07:00–13:00)</option>
+              <option>Afternoon (13:00–19:00)</option>
+              <option>Night (19:00–07:00)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category 1 -->
+      <div class="cl-section">
+        <div class="cl-header">🧴 <span data-en="Category 1 — Hand Sanitation (7 items)" data-km="ប្រភេទទី ១ — អនាម័យដៃ (៧ ចំណុច)">Category 1 — Hand Sanitation (7 items)</span></div>
+        <div class="cl-body" id="cl-sanitation"></div>
+      </div>
+
+      <!-- Category 2 -->
+      <div class="cl-section">
+        <div class="cl-header">🖐 <span data-en="Category 2 — Five Moments of Hand Hygiene (WHO)" data-km="ប្រភេទទី ២ — ពេលទាំង ៥ នៃការអនាម័យដៃ (WHO)">Category 2 — Five Moments of Hand Hygiene (WHO)</span></div>
+        <div class="cl-body" id="cl-moments"></div>
+      </div>
+
+      <!-- Category 3 -->
+      <div class="cl-section">
+        <div class="cl-header">🔢 <span data-en="Category 3 — Six Steps of Hand Hygiene Technique" data-km="ប្រភេទទី ៣ — ជំហានទាំង ៦ នៃបច្ចេកទេសអនាម័យដៃ">Category 3 — Six Steps of Hand Hygiene Technique</span></div>
+        <div class="cl-body" id="cl-steps"></div>
+      </div>
+
+      <div style="margin-top:18px">
+        <button class="btn-secondary" onclick="resetForm()"><span data-en="Reset" data-km="កំណត់ឡើងវិញ">Reset</span></button>
+        <button class="btn-primary" onclick="submitAssessment()">💾 <span data-en="Save Assessment" data-km="រក្សាទុកការវាយតម្លៃ">Save Assessment</span></button>
+      </div>
+    </div>
+
+    <!-- ═══ RECORDS ═══ -->
+    <div class="view" id="view-records">
+      <div class="page-title" data-en="Assessment Records" data-km="កំណត់ត្រាការវាយតម្លៃ">Assessment Records</div>
+      <p class="page-sub" data-en="All saved observations" data-km="ការសង្កេតដែលបានរក្សាទុកទាំងអស់">All saved observations</p>
+
+      <div class="export-row">
+        <button class="btn-export" onclick="exportExcel()">📊 <span data-en="Export Excel" data-km="នាំចេញ Excel">Export Excel</span></button>
+        <button class="btn-export" onclick="exportPDF()">📄 <span data-en="Export PDF" data-km="នាំចេញ PDF">Export PDF</span></button>
+      </div>
+
+      <div class="records-wrap">
+        <div class="records-toolbar">
+          <h4 id="recordCount">0 records</h4>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input class="search-input" id="searchInput" placeholder="Search…" oninput="renderRecords()">
+            <button class="btn-xs" onclick="syncFromGas()" id="syncBtn">☁ Sync</button>
+            <button class="btn-xs" style="border-color:var(--bad);color:var(--bad)" onclick="clearAllRecords()">🗑 Clear All</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th data-en="Date" data-km="កាលបរិច្ឆេទ">Date</th>
+                <th data-en="Department" data-km="នាយកដ្ឋាន">Department</th>
+                <th data-en="Observer" data-km="អ្នកសង្កេត">Observer</th>
+                <th data-en="Role" data-km="តួនាទី">Role</th>
+                <th data-en="Shift" data-km="វេន">Shift</th>
+                <th data-en="Sanitation" data-km="អនាម័យ">Sanitation</th>
+                <th data-en="5 Moments" data-km="ពេល ៥">5 Moments</th>
+                <th data-en="6 Steps" data-km="ជំហាន ៦">6 Steps</th>
+                <th data-en="Overall" data-km="សរុប">Overall</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody">
+              <tr><td colspan="11"><div class="empty"><div class="empty-icon">🗂</div><p>No records yet.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════
+const DEPARTMENTS = [
+  'OPD','Emergency','Hepatitis Clinic','NCD','ENT',
+  'Oral Health','Eye Unit','Dialysis','General Medicine',
+  'ICU','Operation Theater','Surgery A','Surgery B',
+  'Gynecology','Maternity','Laboratory','Imaging','Pediatry'
+];
+
+const DEPT_KM = {
+  'OPD':'OPD','Emergency':'អន្តរការ','Hepatitis Clinic':'គ្លីនីកជំងឺថ្លើម',
+  'NCD':'NCD','ENT':'ត្រចៀក មាត់ ច្រមុះ','Oral Health':'牙科 ធ្មេញ',
+  'Eye Unit':'ភ្នែក','Dialysis':'ឌីយ៉ាលីស','General Medicine':'ថ្នាក់ទូទៅ',
+  'ICU':'ICU','Operation Theater':'ห้อง​ผ្ការ','Surgery A':'វះកាត់ A',
+  'Surgery B':'វះកាត់ B','Gynecology':'រោគស្ត្រី','Maternity':'មន្ទីរពេទ្យមសម្ភព',
+  'Laboratory':'មន្ទីរពិសោធន៍','Imaging':'រូបភាពវេជ្ជសាស្ត្រ','Pediatry':'សុខភាពកុមារ'
+};
+
+const DEPT_COLORS = [
+  '#00c2a8','#4f8ef7','#f7a84f','#f75f5f','#b06ef7',
+  '#5ef7c8','#f75fa8','#a8f75f','#5fa8f7','#f7e05f',
+  '#ff8c69','#9ef7a8','#f7c85f','#c85ff7','#5ff7e8',
+  '#f78c5f','#5fc8f7','#f75fd4'
+];
+
+const CHECKLIST = {
+  sanitation: [
+    { id:'s1', en:'ABHR (alcohol-based hand rub) available at point of care', km:'ទឹករំអិលជូតដៃ (ABHR) មាននៅចំណុចថែទាំ', sub_en:'Dispenser present and functional', sub_km:'ឧបករណ៍ចេញរំអិលដំណើរការបានល្អ' },
+    { id:'s2', en:'Soap and clean water available at sink', km:'សាប៊ូ និងទឹកស្អាតមាននៅកន្លែងលាងដៃ', sub_en:'Hand-washing facility accessible', sub_km:'ចុងភ្ជាប់លាងដៃអាចចូលបាន' },
+    { id:'s3', en:'Single-use paper towels or clean cloth for drying', km:'ក្រដាសសម្ងួតដៃ ឬក្រណាត់ស្អាតសម្រាប់ជូតស្ងួត', sub_en:'No shared towel', sub_km:'មិនចែករំលែកក្រណាត់' },
+    { id:'s4', en:'Staff uses ABHR when hands are not visibly soiled', km:'បុគ្គលិកប្រើ ABHR នៅពេលដៃមិនសម្អុយ', sub_en:'Correct product selected', sub_km:'ជ្រើសផលិតផលត្រឹមត្រូវ' },
+    { id:'s5', en:'Staff uses soap and water when hands are visibly dirty', km:'បុគ្គលិកប្រើសាប៊ូ+ទឹក នៅពេលដៃសម្អុយ ឬប៉ះជម្ងឺ spore', sub_en:'Correct indication followed', sub_km:'ធ្វើតាមការណែនាំត្រឹមត្រូវ' },
+    { id:'s6', en:'Sufficient volume of product used (2–3 mL ABHR; enough soap)', km:'ប្រើបរិមាណផលិតផលគ្រប់គ្រាន់ (ABHR 2-3 mL)', sub_en:'Adequate quantity observed', sub_km:'បរិមាណគ្រប់គ្រាន់' },
+    { id:'s7', en:'No rings, bracelets, or artificial nails during clinical care', km:'គ្មានចិញ្ចៀន ក្រចក ឬក្រចកសិប្បនិម្មិតក្នុងពេលថែទាំ', sub_en:'Bare below elbows policy', sub_km:'គោលនយោបាយសម្អាតដៃ' },
+  ],
+  moments: [
+    { id:'m1', en:'Moment 1 — Before touching a patient', km:'ពេលទី ១ — មុននឹងប៉ះអ្នកជំងឺ', sub_en:'Hand hygiene before patient contact', sub_km:'អនាម័យដៃមុនប៉ះអ្នកជំងឺ' },
+    { id:'m2', en:'Moment 2 — Before a clean / aseptic procedure', km:'ពេលទី ២ — មុននឹងធ្វើដំណើរការស្អាត/aseptic', sub_en:'Hand hygiene before aseptic task', sub_km:'អនាម័យដៃមុនការធ្វើ aseptic' },
+    { id:'m3', en:'Moment 3 — After body fluid exposure risk', km:'ពេលទី ៣ — ក្រោយប្រឈមមុខផ្ទាល់ជាមួយសារធាតុរាងកាយ', sub_en:'Hand hygiene after blood/fluid exposure', sub_km:'អនាម័យដៃក្រោយប៉ះឈាម/រាវ' },
+    { id:'m4', en:'Moment 4 — After touching a patient', km:'ពេលទី ៤ — ក្រោយប៉ះអ្នកជំងឺ', sub_en:'Hand hygiene after patient contact', sub_km:'អនាម័យដៃក្រោយប៉ះអ្នកជំងឺ' },
+    { id:'m5', en:'Moment 5 — After touching patient surroundings', km:'ពេលទី ៥ — ក្រោយប៉ះបរិស្ថានជុំវិញអ្នកជំងឺ', sub_en:'Hand hygiene after patient environment', sub_km:'អនាម័យដៃក្រោយប៉ះបរិស្ថានអ្នកជំងឺ' },
+  ],
+  steps: [
+    { id:'t1', en:'Step 1 — Apply ABHR to palm (or wet hands)', km:'ជំហានទី ១ — ដាក់ ABHR លើប្រ (ឬបំបាត់ដៃ)', sub_en:'Adequate product applied', sub_km:'ផលិតផលគ្រប់គ្រាន់' },
+    { id:'t2', en:'Step 2 — Rub palms together', km:'ជំហានទី ២ — ថ្ពិតប្រ+ប្រ', sub_en:'Palm-to-palm coverage', sub_km:'គ្របដៃទំហំនឹងប' },
+    { id:'t3', en:'Step 3 — Right palm over left dorsum, fingers interlaced; vice versa', km:'ជំហានទី ៣ — ប្រដៃស្ដាំលើខ្នងដៃឆ្វេង មេដៃចូលគ្នា', sub_en:'Backs of hands covered', sub_km:'ខ្នងដៃគ្របបាន' },
+    { id:'t4', en:'Step 4 — Palm to palm with fingers interlaced', km:'ជំហានទី ៤ — ប្រ+ប្រ មេដៃចូលគ្នា', sub_en:'Between fingers covered', sub_km:'រវាងម្រាមដៃ' },
+    { id:'t5', en:'Step 5 — Backs of fingers to opposing palms, fingers interlocked', km:'ជំហានទី ៥ — ខ្នងម្រាមដៃប្រឆាំង', sub_en:'Knuckles covered', sub_km:'ខ្ទួនក្ដួចម្រាម' },
+    { id:'t6', en:'Step 6 — Rotational rubbing of thumbs and fingertips', km:'ជំហានទី ៦ — ថ្ពិតជុំវិញមេដៃ និងចុងម្រាម', sub_en:'Thumbs and fingertips covered', sub_km:'មេដៃ និងចុងម្រាមបានគ្រប' },
+    { id:'t7', en:'Duration ≥ 20 sec (ABHR) or 40–60 sec (soap and water)', km:'រយៈពេល ≥ ២០ វិ (ABHR) ឬ ៤០-៦០ វិ (សាប៊ូ+ទឹក)', sub_en:'Adequate duration observed', sub_km:'រយៈពេលត្រឹមត្រូវ' },
+    { id:'t8', en:'Hands dried thoroughly; tap closed with towel (soap/water only)', km:'ជូតដៃឲ្យស្ងួត ហើយបិទក្បាលទឹកដោយក្រដាស', sub_en:'Complete drying; correct tap-off technique', sub_km:'ជូតពេញ; បិទក្បាលទឹកត្រឹមត្រូវ' },
+  ]
+};
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let records = JSON.parse(localStorage.getItem('hh_records') || '[]');
+let answers = {};
+let lang = 'en';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxt8T4lTGVr2xtPuq3NosWlobad_DS3iPk9H5aQSV1mcfcRCbNrVaaX8uooWpTjOMjD/exec';
+let gasUrl = localStorage.getItem('hh_gas_url') || DEFAULT_GAS_URL;
+let categoryChart, deptChart;
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+function init() {
+  const now = new Date();
+  document.getElementById('todayBadge').textContent =
+    now.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+
+  document.getElementById('gasUrl').value = gasUrl;
+  localStorage.setItem('hh_gas_url', gasUrl);
+  updateGasStatus('sync');
+  setTimeout(pingGas, 800); // auto-connect on load
+
+  // Build sidebar & dropdown
+  const deptList = document.getElementById('deptList');
+  const sel = document.getElementById('f-dept');
+  DEPARTMENTS.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = 'dept-item'; div.dataset.dept = d;
+    div.innerHTML = `<span class="dept-name">${d}</span><span class="dept-score score-warn" id="ds-${i}">—</span>`;
+    div.onclick = () => {
+      document.querySelectorAll('.dept-item').forEach(x => x.classList.remove('active'));
+      div.classList.add('active');
+      document.getElementById('f-dept').value = d;
+      switchTab('assess');
+    };
+    deptList.appendChild(div);
+
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = d; sel.appendChild(opt);
+  });
+
+  buildChecklist('sanitation', CHECKLIST.sanitation);
+  buildChecklist('moments',    CHECKLIST.moments);
+  buildChecklist('steps',      CHECKLIST.steps);
+
+  renderAll();
+  setLang('en');
+}
+
+function buildChecklist(cat, items) {
+  const el = document.getElementById(`cl-${cat}`);
+  el.innerHTML = '';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'check-row';
+    row.innerHTML = `
+      <div class="check-label">
+        <span class="lbl-main" data-en="${item.en}" data-km="${item.km}">${item.en}</span>
+        <span class="lbl-sub" data-en="${item.sub_en}" data-km="${item.sub_km}">${item.sub_en}</span>
+      </div>
+      <div class="radio-group">
+        <button class="radio-btn" data-id="${item.id}" onclick="setAnswer('${item.id}','yes',this)">YES</button>
+        <button class="radio-btn" data-id="${item.id}" onclick="setAnswer('${item.id}','no',this)">NO</button>
+        <button class="radio-btn" data-id="${item.id}" onclick="setAnswer('${item.id}','na',this)">N/A</button>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════
+// LANGUAGE
+// ══════════════════════════════════════════════
+function setLang(l) {
+  lang = l;
+  document.getElementById('btn-en').classList.toggle('active', l === 'en');
+  document.getElementById('btn-km').classList.toggle('active', l === 'km');
+  document.documentElement.lang = l;
+
+  document.querySelectorAll('[data-en][data-km]').forEach(el => {
+    const val = el.getAttribute(`data-${l}`);
+    if (val) el.textContent = val;
+  });
+
+  // Checklist labels
+  document.querySelectorAll('.lbl-main').forEach(el => {
+    el.textContent = el.getAttribute(`data-${l}`) || el.getAttribute('data-en');
+  });
+  document.querySelectorAll('.lbl-sub').forEach(el => {
+    el.textContent = el.getAttribute(`data-${l}`) || el.getAttribute('data-en');
+  });
+
+  // Dept sidebar names
+  document.querySelectorAll('.dept-name').forEach(el => {
+    const d = el.closest('.dept-item')?.dataset.dept;
+    if (d) el.textContent = (l === 'km' && DEPT_KM[d]) ? DEPT_KM[d] : d;
+  });
+
+  // Option elements (role)
+  document.querySelectorAll('option[data-en]').forEach(opt => {
+    opt.textContent = opt.getAttribute(`data-${l}`) || opt.getAttribute('data-en');
+  });
+
+  renderAll();
+}
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+function switchTab(tab) {
+  const tabs = ['dashboard','assess','records'];
+  document.querySelectorAll('.nav-tab').forEach((t,i) => t.classList.toggle('active', tabs[i] === tab));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${tab}`).classList.add('active');
+  if (tab === 'dashboard') renderAll();
+  if (tab === 'records')   renderRecords();
+}
+
+// ══════════════════════════════════════════════
+// ASSESSMENT
+// ══════════════════════════════════════════════
+function setAnswer(id, val, btn) {
+  answers[id] = val;
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(b => b.classList.remove('sel-yes','sel-no','sel-na'));
+  btn.classList.add(`sel-${val}`);
+}
+
+function calcScore(ids) {
+  const rel = ids.filter(id => answers[id] && answers[id] !== 'na');
+  if (!rel.length) return null;
+  return Math.round(rel.filter(id => answers[id] === 'yes').length / rel.length * 100);
+}
+
+async function submitAssessment() {
+  const dept     = document.getElementById('f-dept').value;
+  const observer = document.getElementById('f-observer').value.trim();
+  const date     = document.getElementById('f-date').value;
+  const role     = document.getElementById('f-role').value;
+  const shift    = document.getElementById('f-shift').value;
+
+  if (!dept || !observer || !date || !role) { showToast('⚠️ Fill all required fields', true); return; }
+  const totalItems = Object.values(CHECKLIST).flat().length;
+  if (Object.keys(answers).length < Math.ceil(totalItems * 0.5)) {
+    showToast('⚠️ Answer at least 50% of items', true); return;
+  }
+
+  const san = calcScore(CHECKLIST.sanitation.map(i => i.id));
+  const mom = calcScore(CHECKLIST.moments.map(i => i.id));
+  const stp = calcScore(CHECKLIST.steps.map(i => i.id));
+  const all = [san,mom,stp].filter(x => x !== null);
+  const overall = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : null;
+
+  const record = {
+    id: Date.now(), dept, observer, date, role, shift,
+    answers: { ...answers }, scores: { san, mom, stp, overall }
+  };
+
+  records.push(record);
+  saveLocal();
+  showToast('✅ Saved locally!');
+  resetForm();
+  renderAll();
+
+  // Push to GAS if configured
+  if (gasUrl) {
+    updateGasStatus('sync');
+    try {
+      const res = await fetch(gasUrl, {
+        method:'POST',
+        body: JSON.stringify({ action:'save', ...record }),
+        headers:{'Content-Type':'application/json'}
+      });
+      const json = await res.json();
+      if (json.ok) { showToast('☁ Synced to Google Sheet!'); updateGasStatus('ok'); }
+      else { showToast('⚠ GAS error: '+json.message, true); updateGasStatus('err'); }
+    } catch(e) { showToast('⚠ Cannot reach GAS', true); updateGasStatus('err'); }
+  }
+}
+
+function resetForm() {
+  answers = {};
+  document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('sel-yes','sel-no','sel-na'));
+  document.getElementById('f-observer').value = '';
+  document.getElementById('f-role').value = '';
+  document.getElementById('f-dept').value = '';
+}
+
+function clearAllRecords() {
+  if (!confirm('Delete ALL records? This cannot be undone.')) return;
+  records = [];
+  saveLocal();
+  renderAll(); renderRecords();
+  showToast('🗑 Records cleared');
+}
+
+function deleteRecord(id) {
+  records = records.filter(r => r.id !== id);
+  saveLocal();
+  renderAll(); renderRecords();
+  showToast('Record deleted');
+}
+
+function saveLocal() {
+  localStorage.setItem('hh_records', JSON.stringify(records));
+}
+
+// ══════════════════════════════════════════════
+// GAS CLOUD SYNC
+// ══════════════════════════════════════════════
+function saveGasUrl() {
+  gasUrl = document.getElementById('gasUrl').value.trim();
+  localStorage.setItem('hh_gas_url', gasUrl);
+  updateGasStatus('idle');
+}
+
+function updateGasStatus(state) {
+  const dot = document.getElementById('gasDot');
+  const lbl = document.getElementById('gasLabel');
+  dot.className = 'gas-dot';
+  if (state === 'ok')   { dot.classList.add('ok');   lbl.textContent = 'Cloud sync: Connected ✓'; }
+  else if (state==='err')  { dot.classList.add('err');  lbl.textContent = 'Cloud sync: Error ✗'; }
+  else if (state==='sync') { dot.classList.add('sync'); lbl.textContent = 'Cloud sync: Syncing…'; }
+  else { lbl.textContent = gasUrl ? 'Cloud sync: URL set — click Connect to verify' : 'Cloud sync: not configured'; }
+}
+
+async function pingGas() {
+  if (!gasUrl) { showToast('⚠ Paste your GAS URL first', true); return; }
+  updateGasStatus('sync');
+  try {
+    const res = await fetch(gasUrl + '?action=ping');
+    const json = await res.json();
+    if (json.ok) { updateGasStatus('ok'); showToast('☁ GAS connected!'); }
+    else { updateGasStatus('err'); showToast('⚠ GAS responded with error', true); }
+  } catch(e) { updateGasStatus('err'); showToast('⚠ Cannot reach GAS. Check URL and deployment.', true); }
+}
+
+async function syncFromGas() {
+  if (!gasUrl) { showToast('⚠ Configure GAS URL first', true); return; }
+  updateGasStatus('sync');
+  const btn = document.getElementById('syncBtn');
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await fetch(gasUrl + '?action=getAll');
+    const json = await res.json();
+    if (json.ok) {
+      // Merge: keep local records not in GAS, add GAS records not in local
+      const gasIds = new Set(json.records.map(r => String(r.id)));
+      const localOnly = records.filter(r => !gasIds.has(String(r.id)));
+      records = [...json.records, ...localOnly];
+      saveLocal();
+      renderAll(); renderRecords();
+      updateGasStatus('ok');
+      showToast(`☁ Pulled ${json.records.length} records from Sheet`);
+    } else { updateGasStatus('err'); showToast('⚠ Sync failed: '+json.message, true); }
+  } catch(e) { updateGasStatus('err'); showToast('⚠ Cannot reach GAS', true); }
+  finally { btn.innerHTML = '☁ Sync'; }
+}
+
+// ══════════════════════════════════════════════
+// EXPORT — EXCEL
+// ══════════════════════════════════════════════
+function exportExcel() {
+  if (!records.length) { showToast('No records to export', true); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Summary by department
+  const deptData = buildDeptData();
+  const summaryRows = [
+    ['Department','Assessments','Sanitation (%)','5 Moments (%)','6 Steps (%)','Overall (%)','Status']
+  ];
+  DEPARTMENTS.forEach(d => {
+    const dd = deptData[d];
+    if (!dd.count) return;
+    const ov=avg(dd.overall), s=avg(dd.san), m=avg(dd.mom), t=avg(dd.stp);
+    summaryRows.push([d, dd.count, s??'—', m??'—', t??'—', ov??'—',
+      ov===null?'No data':ov>=75?'Good':ov>=50?'Needs Improvement':'Poor']);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+  ws1['!cols'] = [{wch:20},{wch:14},{wch:16},{wch:16},{wch:14},{wch:12},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+
+  // Sheet 2: Raw Records
+  const rawRows = [['ID','Date','Department','Observer','Role','Shift',
+    'Sanitation (%)','5 Moments (%)','6 Steps (%)','Overall (%)',
+    'S1','S2','S3','S4','S5','S6','S7','M1','M2','M3','M4','M5',
+    'T1','T2','T3','T4','T5','T6','T7','T8']];
+  records.forEach(r => {
+    const a = r.answers || {};
+    rawRows.push([r.id, r.date, r.dept, r.observer, r.role, r.shift,
+      r.scores.san??'', r.scores.mom??'', r.scores.stp??'', r.scores.overall??'',
+      a.s1||'',a.s2||'',a.s3||'',a.s4||'',a.s5||'',a.s6||'',a.s7||'',
+      a.m1||'',a.m2||'',a.m3||'',a.m4||'',a.m5||'',
+      a.t1||'',a.t2||'',a.t3||'',a.t4||'',a.t5||'',a.t6||'',a.t7||'',a.t8||'']);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(rawRows);
+  ws2['!cols'] = [{wch:14},{wch:12},{wch:20},{wch:18},{wch:16},{wch:22},
+    {wch:14},{wch:14},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Raw Records');
+
+  const date = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `KCPH_HandHygiene_${date}.xlsx`);
+  showToast('📊 Excel exported!');
+}
+
+// ══════════════════════════════════════════════
+// EXPORT — PDF
+// ══════════════════════════════════════════════
+function exportPDF() {
+  if (!records.length) { showToast('No records to export', true); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+
+  const date = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const deptData = buildDeptData();
+
+  // Title
+  doc.setFillColor(10,15,30);
+  doc.rect(0,0,297,30,'F');
+  doc.setTextColor(0,194,168);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Monitoring Report', 14, 13);
+  doc.setFontSize(9); doc.setTextColor(107,127,163); doc.setFont('helvetica','normal');
+  doc.text('Kampong Chhnang Provincial Hospital — IPC Program', 14, 20);
+  doc.text(`Generated: ${date}  |  Total assessments: ${records.length}`, 14, 26);
+
+  // KPI bar
+  const allOv  = records.filter(r=>r.scores.overall!==null).map(r=>r.scores.overall);
+  const allSan = records.filter(r=>r.scores.san!==null).map(r=>r.scores.san);
+  const allMom = records.filter(r=>r.scores.mom!==null).map(r=>r.scores.mom);
+  const allStp = records.filter(r=>r.scores.stp!==null).map(r=>r.scores.stp);
+
+  const kpis = [
+    {label:'Overall', val:avg(allOv)},
+    {label:'Sanitation', val:avg(allSan)},
+    {label:'5 Moments', val:avg(allMom)},
+    {label:'6 Steps', val:avg(allStp)},
+    {label:'Assessments', val:records.length, noColor:true},
+  ];
+
+  let kx = 14;
+  kpis.forEach(k => {
+    doc.setFillColor(22,31,50); doc.roundedRect(kx,34,50,18,2,2,'F');
+    doc.setFontSize(7); doc.setTextColor(107,127,163); doc.setFont('helvetica','normal');
+    doc.text(k.label.toUpperCase(), kx+3, 40);
+    const col = k.noColor ? [200,213,229] : scoreRGB(k.val);
+    doc.setTextColor(...col);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text(k.val !== null ? `${k.val}%` : '—', kx+3, 49);
+    kx += 54;
+  });
+
+  // Department summary table
+  const rows = [];
+  DEPARTMENTS.forEach(d => {
+    const dd = deptData[d];
+    if (!dd.count) return;
+    const ov=avg(dd.overall);
+    rows.push([d, dd.count,
+      avg(dd.san)!==null?`${avg(dd.san)}%`:'—',
+      avg(dd.mom)!==null?`${avg(dd.mom)}%`:'—',
+      avg(dd.stp)!==null?`${avg(dd.stp)}%`:'—',
+      ov!==null?`${ov}%`:'—',
+      ov===null?'No data':ov>=75?'Good':ov>=50?'Needs Improvement':'Poor'
+    ]);
+  });
+
+  doc.autoTable({
+    head:[['Department','Assessments','Sanitation %','5 Moments %','6 Steps %','Overall %','Status']],
+    body: rows,
+    startY: 56,
+    styles:{ fontSize:9, cellPadding:3 },
+    headStyles:{ fillColor:[10,15,30], textColor:[0,194,168], fontStyle:'bold' },
+    alternateRowStyles:{ fillColor:[22,31,50] },
+    bodyStyles:{ fillColor:[17,24,39], textColor:[232,237,245] },
+    didParseCell: data => {
+      if (data.column.index === 6 && data.section==='body') {
+        const txt = data.cell.raw;
+        if (txt==='Good')              data.cell.styles.textColor=[0,194,168];
+        else if (txt==='Needs Improvement') data.cell.styles.textColor=[247,168,79];
+        else if (txt==='Poor')         data.cell.styles.textColor=[247,95,95];
+        else                           data.cell.styles.textColor=[107,127,163];
+      }
+    }
+  });
+
+  // Page 2: Raw records
+  doc.addPage();
+  doc.setFillColor(10,15,30); doc.rect(0,0,297,16,'F');
+  doc.setFontSize(11); doc.setTextColor(0,194,168); doc.setFont('helvetica','bold');
+  doc.text('Individual Assessment Records', 14, 10);
+
+  const rawRows = records.slice().reverse().map((r,i) => [
+    records.length-i, r.date, r.dept, r.observer, r.role.split(' ')[0],
+    r.shift.split(' ')[0],
+    r.scores.san!==null?`${r.scores.san}%`:'—',
+    r.scores.mom!==null?`${r.scores.mom}%`:'—',
+    r.scores.stp!==null?`${r.scores.stp}%`:'—',
+    r.scores.overall!==null?`${r.scores.overall}%`:'—',
+  ]);
+
+  doc.autoTable({
+    head:[['#','Date','Department','Observer','Role','Shift','Sanit.','5 Mom.','6 Steps','Overall']],
+    body: rawRows,
+    startY: 20,
+    styles:{ fontSize:8, cellPadding:2.5 },
+    headStyles:{ fillColor:[10,15,30], textColor:[0,194,168], fontStyle:'bold' },
+    alternateRowStyles:{ fillColor:[22,31,50] },
+    bodyStyles:{ fillColor:[17,24,39], textColor:[232,237,245] },
+    didParseCell: data => {
+      if (data.column.index === 9 && data.section==='body') {
+        const txt = data.cell.raw;
+        const v = parseInt(txt);
+        if (!isNaN(v)) data.cell.styles.textColor = scoreRGB(v);
+      }
+    }
+  });
+
+  // Footer on all pages
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7); doc.setTextColor(107,127,163); doc.setFont('helvetica','normal');
+    doc.text(`KCPH IPC Program — Confidential | Page ${p} of ${pageCount}`, 14, 205);
+    doc.text(`Generated: ${date}`, 240, 205);
+  }
+
+  const fname = `KCPH_HandHygiene_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fname);
+  showToast('📄 PDF exported!');
+}
+
+function scoreRGB(v) {
+  if (v===null||v===undefined) return [107,127,163];
+  if (v>=75) return [0,194,168];
+  if (v>=50) return [247,168,79];
+  return [247,95,95];
+}
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+const avg    = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+const scCol  = v => v===null?'var(--muted)':v>=75?'var(--good)':v>=50?'var(--warn)':'var(--bad)';
+const scCls  = v => v===null?'score-warn':v>=75?'score-good':v>=50?'score-warn':'score-bad';
+
+function statusBadge(v) {
+  if (v===null) return `<span class="badge" style="background:rgba(107,127,163,.15);color:var(--muted)">—</span>`;
+  if (v>=75)    return `<span class="badge" style="background:rgba(0,194,168,.15);color:var(--good)">✓ ${lang==='km'?'ល្អ':'Good'}</span>`;
+  if (v>=50)    return `<span class="badge" style="background:rgba(247,168,79,.15);color:var(--warn)">⚠ ${lang==='km'?'ត្រូវកែ':'Needs Improvement'}</span>`;
+  return            `<span class="badge" style="background:rgba(247,95,95,.15);color:var(--bad)">✗ ${lang==='km'?'ខ្សោយ':'Poor'}</span>`;
+}
+
+function fmt(v) {
+  return v!==null&&v!==undefined
+    ? `<span style="color:${scCol(v)};font-family:var(--font-mono);font-weight:600">${v}%</span>`
+    : `<span style="color:var(--muted)">—</span>`;
+}
+
+function progBar(v) {
+  if (v===null) return fmt(v);
+  return `<div style="display:flex;align-items:center;gap:7px">${fmt(v)}<div class="prog-bar"><div class="prog-fill" style="width:${v}%;background:${scCol(v)}"></div></div></div>`;
+}
+
+function buildDeptData() {
+  const dd = {};
+  DEPARTMENTS.forEach(d => { dd[d]={ san:[],mom:[],stp:[],overall:[],count:0 }; });
+  records.forEach(r => {
+    if (!dd[r.dept]) return;
+    const d = dd[r.dept]; d.count++;
+    if (r.scores.san!==null)     d.san.push(r.scores.san);
+    if (r.scores.mom!==null)     d.mom.push(r.scores.mom);
+    if (r.scores.stp!==null)     d.stp.push(r.scores.stp);
+    if (r.scores.overall!==null) d.overall.push(r.scores.overall);
+  });
+  return dd;
+}
+
+function renderAll() {
+  const deptData = buildDeptData();
+  const allOv  = records.filter(r=>r.scores.overall!==null).map(r=>r.scores.overall);
+  const allSan = records.filter(r=>r.scores.san!==null).map(r=>r.scores.san);
+  const allMom = records.filter(r=>r.scores.mom!==null).map(r=>r.scores.mom);
+  const allStp = records.filter(r=>r.scores.stp!==null).map(r=>r.scores.stp);
+
+  const setKpi = (id, arr) => {
+    const v = avg(arr); const el = document.getElementById(id);
+    el.textContent = v!==null?`${v}%`:'—'; el.style.color = scCol(v);
+  };
+  setKpi('kpi-overall',allOv); setKpi('kpi-san',allSan);
+  setKpi('kpi-moments',allMom); setKpi('kpi-steps',allStp);
+  document.getElementById('kpi-total').textContent = records.length;
+
+  // Sidebar
+  DEPARTMENTS.forEach((d,i) => {
+    const el = document.getElementById(`ds-${i}`);
+    const v = avg(deptData[d].overall);
+    if (el) { el.textContent = v!==null?`${v}%`:'—'; el.className=`dept-score ${scCls(v)}`; }
+  });
+
+  // Summary table
+  const tbody = document.getElementById('summaryBody');
+  tbody.innerHTML = '';
+  let any = false;
+  DEPARTMENTS.forEach((d,i) => {
+    const dd = deptData[d];
+    if (!dd.count) return;
+    any = true;
+    const ov=avg(dd.overall), sanV=avg(dd.san), momV=avg(dd.mom), stpV=avg(dd.stp);
+    tbody.innerHTML += `<tr>
+      <td><span class="dept-dot" style="background:${DEPT_COLORS[i]}"></span>${lang==='km'&&DEPT_KM[d]?DEPT_KM[d]:d}</td>
+      <td style="font-family:var(--font-mono)">${dd.count}</td>
+      <td>${progBar(sanV)}</td><td>${progBar(momV)}</td>
+      <td>${progBar(stpV)}</td><td>${progBar(ov)}</td>
+      <td>${statusBadge(ov)}</td></tr>`;
+  });
+  if (!any) tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📭</div><p>No data yet.</p></div></td></tr>`;
+
+  renderCategoryChart(avg(allSan),avg(allMom),avg(allStp));
+  renderDeptChart(deptData);
+}
+
+function renderCategoryChart(san, mom, stp) {
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  if (categoryChart) categoryChart.destroy();
+  const labels = lang==='km'
+    ? ['អនាម័យដៃ','ពេល ៥','ជំហាន ៦']
+    : ['Hand Sanitation','5 Moments','6 Steps'];
+  categoryChart = new Chart(ctx,{
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:[san??0,mom??0,stp??0],
+      backgroundColor:['rgba(0,194,168,.85)','rgba(79,142,247,.85)','rgba(176,110,247,.85)'],
+      borderColor:['#0a0f1e','#0a0f1e','#0a0f1e'], borderWidth:3 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#6b7fa3', font:{size:11}, padding:14 } },
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } }
+      }
+    }
+  });
+}
+
+function renderDeptChart(deptData) {
+  const ctx = document.getElementById('deptChart').getContext('2d');
+  if (deptChart) deptChart.destroy();
+  const sorted = DEPARTMENTS
+    .map((d,i)=>({ d, v:avg(deptData[d].overall)??0, color:DEPT_COLORS[i] }))
+    .filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,10);
+  deptChart = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: sorted.map(x => lang==='km'&&DEPT_KM[x.d]?DEPT_KM[x.d]:x.d),
+      datasets:[{ label:'Overall %', data:sorted.map(x=>x.v),
+        backgroundColor:sorted.map(x=>x.color+'cc'),
+        borderColor:sorted.map(x=>x.color), borderWidth:1.5, borderRadius:5 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x}%`}} },
+      scales:{
+        x:{ min:0, max:100, ticks:{color:'#6b7fa3',callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,.04)'}, border:{color:'transparent'} },
+        y:{ ticks:{color:'#e8edf5',font:{size:10}}, grid:{display:false}, border:{color:'transparent'} }
+      }
+    }
+  });
+}
+
+function renderRecords() {
+  const q = (document.getElementById('searchInput')?.value||'').toLowerCase();
+  const filtered = records
+    .filter(r => r.dept.toLowerCase().includes(q)||r.observer.toLowerCase().includes(q))
+    .sort((a,b)=>b.id-a.id);
+  document.getElementById('recordCount').textContent = `${filtered.length} record${filtered.length!==1?'s':''}`;
+  const tbody = document.getElementById('recordsBody');
+  if (!filtered.length) {
+    tbody.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="empty-icon">🗂</div><p>No records found.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map((r,i) => `
+    <tr>
+      <td style="color:var(--muted);font-family:var(--font-mono)">${filtered.length-i}</td>
+      <td style="font-family:var(--font-mono);font-size:11px">${r.date}</td>
+      <td><strong>${lang==='km'&&DEPT_KM[r.dept]?DEPT_KM[r.dept]:r.dept}</strong></td>
+      <td>${r.observer}</td>
+      <td style="color:var(--muted);font-size:11px">${r.role||''}</td>
+      <td style="color:var(--muted);font-size:11px">${(r.shift||'').split(' ')[0]}</td>
+      <td>${fmt(r.scores.san)}</td>
+      <td>${fmt(r.scores.mom)}</td>
+      <td>${fmt(r.scores.stp)}</td>
+      <td>${fmt(r.scores.overall)}</td>
+      <td><button onclick="deleteRecord(${r.id})" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td>
+    </tr>`).join('');
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError?'var(--danger)':'var(--accent)';
+  t.style.color = isError?'#fff':'#000';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
