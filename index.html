@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Hand Hygiene Monitoring — KCPH</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { font-size:16px; -webkit-text-size-adjust:100%; }
+body {
+  font-family:'IBM Plex Sans',sans-serif;
+  background:#f5f6fa;
+  color:#1a1d2e;
+  min-height:100vh;
+  line-height:1.5;
+}
+
+/* ── Design Tokens ── */
+:root {
+  --teal:#00897b;
+  --teal-light:#e0f2f1;
+  --teal-mid:#4db6ac;
+  --coral:#e64a19;
+  --coral-light:#fbe9e7;
+  --amber:#f57c00;
+  --amber-light:#fff3e0;
+  --green:#2e7d32;
+  --green-light:#e8f5e9;
+  --red:#c62828;
+  --red-light:#ffebee;
+  --ink:#1a1d2e;
+  --ink2:#3d4166;
+  --ink3:#6b7280;
+  --line:#e5e7f0;
+  --white:#ffffff;
+  --bg:#f5f6fa;
+  --shadow-sm:0 1px 4px rgba(0,0,0,.07);
+  --shadow-md:0 4px 16px rgba(0,0,0,.09);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
+  --r:12px;
+  --mono:'IBM Plex Mono',monospace;
+}
+
+/* ── Header ── */
+.header {
+  background:var(--white);
+  border-bottom:3px solid var(--teal);
+  padding:0 16px;
+  position:sticky; top:0; z-index:200;
+  box-shadow:var(--shadow-sm);
+}
+.header-inner {
+  max-width:960px; margin:0 auto;
+  display:flex; align-items:center; gap:12px;
+  padding:12px 0;
+}
+.header-icon {
+  width:42px; height:42px; border-radius:10px;
+  background:var(--teal); display:flex; align-items:center; justify-content:center;
+  font-size:20px; flex-shrink:0;
+  box-shadow:0 2px 8px rgba(0,137,123,.3);
+}
+.header-text { flex:1; min-width:0; }
+.header-text h1 {
+  font-size:clamp(14px,3.5vw,16px);
+  font-weight:700; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.header-text p {
+  font-size:11px; color:var(--ink3); margin-top:1px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.header-date {
+  font-family:var(--mono); font-size:11px; color:var(--teal);
+  background:var(--teal-light); border-radius:20px;
+  padding:4px 10px; white-space:nowrap; flex-shrink:0;
+  font-weight:500;
+}
+
+/* ── GAS Bar ── */
+.gas-bar {
+  background:var(--white); border-bottom:1px solid var(--line);
+  padding:8px 16px;
+}
+.gas-inner {
+  max-width:960px; margin:0 auto;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.gas-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:#ccc; flex-shrink:0;
+  transition:background .3s;
+}
+.gas-dot.ok   { background:var(--teal); box-shadow:0 0 0 3px rgba(0,137,123,.15); }
+.gas-dot.err  { background:var(--red); box-shadow:0 0 0 3px rgba(198,40,40,.15); }
+.gas-dot.sync { animation:blink .8s infinite; background:var(--amber); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.gas-status { font-size:12px; color:var(--ink3); white-space:nowrap; }
+.gas-url {
+  flex:1; min-width:180px; max-width:400px;
+  border:1.5px solid var(--line); border-radius:8px;
+  padding:5px 10px; font-size:11px; font-family:var(--mono);
+  color:var(--ink); outline:none; background:var(--bg);
+  transition:border .2s;
+}
+.gas-url:focus { border-color:var(--teal); background:var(--white); }
+.btn-sm {
+  padding:5px 14px; border-radius:8px; font-size:12px; font-weight:600;
+  cursor:pointer; border:1.5px solid var(--teal); background:var(--white);
+  color:var(--teal); font-family:'IBM Plex Sans',sans-serif;
+  transition:all .15s; white-space:nowrap;
+}
+.btn-sm:hover { background:var(--teal); color:var(--white); }
+
+/* ── Nav ── */
+.nav {
+  background:var(--white); border-bottom:1px solid var(--line);
+  position:sticky; top:67px; z-index:190;
+  box-shadow:var(--shadow-sm);
+}
+.nav-inner {
+  max-width:960px; margin:0 auto;
+  display:flex; overflow-x:auto;
+  -ms-overflow-style:none; scrollbar-width:none;
+}
+.nav-inner::-webkit-scrollbar { display:none; }
+.nav-btn {
+  flex:1; min-width:0; padding:13px 12px;
+  font-size:13px; font-weight:600;
+  color:var(--ink3); cursor:pointer;
+  border:none; background:none;
+  border-bottom:3px solid transparent;
+  transition:all .2s; white-space:nowrap;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-family:'IBM Plex Sans',sans-serif;
+}
+.nav-btn:hover { color:var(--teal); background:var(--teal-light); }
+.nav-btn.active { color:var(--teal); border-bottom-color:var(--teal); background:var(--teal-light); }
+
+/* ── Page ── */
+.page { display:none; }
+.page.active { display:block; }
+.wrap { max-width:960px; margin:0 auto; padding:20px 16px 40px; }
+
+/* ── Section title ── */
+.section-head { margin-bottom:20px; }
+.section-head h2 { font-size:22px; font-weight:700; color:var(--ink); }
+.section-head p  { font-size:13px; color:var(--ink3); margin-top:3px; }
+
+/* ── KPI Grid ── */
+.kpi-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:12px; margin-bottom:20px;
+}
+.kpi-card {
+  background:var(--white);
+  border-radius:var(--r);
+  padding:16px;
+  box-shadow:var(--shadow-sm);
+  border:1px solid var(--line);
+  border-top:3px solid var(--kpi-color,var(--teal));
+  position:relative; overflow:hidden;
+}
+.kpi-card::after {
+  content:''; position:absolute;
+  top:-20px; right:-20px;
+  width:70px; height:70px; border-radius:50%;
+  background:var(--kpi-color,var(--teal));
+  opacity:.06;
+}
+.kpi-label {
+  font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.8px; color:var(--ink3); margin-bottom:8px;
+}
+.kpi-value {
+  font-family:var(--mono); font-size:30px; font-weight:500; line-height:1;
+  color:var(--kpi-color,var(--teal));
+}
+.kpi-sub { font-size:11px; color:var(--ink3); margin-top:5px; }
+
+/* ── Charts ── */
+.charts-row {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px; margin-bottom:20px;
+}
+@media(max-width:600px) { .charts-row { grid-template-columns:1fr; } }
+.chart-card {
+  background:var(--white); border-radius:var(--r);
+  border:1px solid var(--line); padding:18px;
+  box-shadow:var(--shadow-sm);
+}
+.chart-card h4 {
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.7px; color:var(--ink3); margin-bottom:14px;
+}
+.chart-wrap { position:relative; height:200px; }
+
+/* ── Summary Table Card ── */
+.table-card {
+  background:var(--white); border-radius:var(--r);
+  border:1px solid var(--line); overflow:hidden;
+  box-shadow:var(--shadow-sm); margin-bottom:20px;
+}
+.table-card-head {
+  padding:14px 18px; border-bottom:1px solid var(--line);
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.7px; color:var(--ink3);
+  background:var(--bg);
+}
+.scroll-x { overflow-x:auto; }
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table th {
+  padding:10px 14px; text-align:left;
+  font-size:10px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.6px; color:var(--ink3);
+  border-bottom:2px solid var(--line); background:var(--bg);
+  white-space:nowrap;
+}
+.data-table td {
+  padding:10px 14px; border-bottom:1px solid var(--line);
+  vertical-align:middle;
+}
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:hover td { background:#fafbff; }
+.dept-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:middle; }
+
+/* Progress bar */
+.pbar-wrap { display:flex; align-items:center; gap:8px; }
+.pbar { height:6px; width:64px; background:var(--line); border-radius:3px; overflow:hidden; flex-shrink:0; }
+.pbar-fill { height:100%; border-radius:3px; transition:width .4s ease; }
+.val-text { font-family:var(--mono); font-size:12px; font-weight:500; min-width:34px; }
+
+/* Status badges */
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:20px;
+  font-size:11px; font-weight:700; white-space:nowrap;
+}
+.badge-good { background:var(--green-light); color:var(--green); }
+.badge-warn { background:var(--amber-light); color:var(--amber); }
+.badge-bad  { background:var(--red-light); color:var(--red); }
+.badge-none { background:var(--bg); color:var(--ink3); }
+
+/* ── Export row ── */
+.export-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+.btn-export {
+  display:flex; align-items:center; gap:6px;
+  padding:8px 16px; border-radius:8px; font-size:12px; font-weight:600;
+  cursor:pointer; border:1.5px solid var(--line); background:var(--white);
+  color:var(--ink2); font-family:'IBM Plex Sans',sans-serif;
+  box-shadow:var(--shadow-sm); transition:all .15s;
+}
+.btn-export:hover { border-color:var(--teal); color:var(--teal); box-shadow:var(--shadow-md); }
+
+/* ── Form ── */
+.form-section {
+  background:var(--white); border-radius:var(--r);
+  border:1px solid var(--line); padding:20px;
+  box-shadow:var(--shadow-sm); margin-bottom:16px;
+}
+.form-section-title {
+  font-size:13px; font-weight:700; color:var(--ink);
+  margin-bottom:16px; display:flex; align-items:center; gap:8px;
+  padding-bottom:12px; border-bottom:1px solid var(--line);
+}
+.form-section-title .icon {
+  width:30px; height:30px; border-radius:8px;
+  background:var(--teal-light); display:flex; align-items:center; justify-content:center;
+  font-size:15px;
+}
+.form-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:14px;
+}
+.field { display:flex; flex-direction:column; gap:5px; }
+.field label {
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.6px; color:var(--ink3);
+}
+.field input, .field select {
+  border:1.5px solid var(--line); border-radius:8px;
+  padding:9px 12px; font-size:13px;
+  font-family:'IBM Plex Sans',sans-serif; color:var(--ink);
+  outline:none; background:var(--white); transition:border .2s;
+  appearance:none;
+}
+.field input:focus, .field select:focus { border-color:var(--teal); }
+
+/* ── Checklist ── */
+.cl-card {
+  background:var(--white); border-radius:var(--r);
+  border:1px solid var(--line); overflow:hidden;
+  box-shadow:var(--shadow-sm); margin-bottom:14px;
+}
+.cl-head {
+  padding:13px 18px; font-size:13px; font-weight:700; color:var(--white);
+  background:var(--teal); display:flex; align-items:center; gap:8px;
+}
+.cl-head.cat2 { background:#00695c; }
+.cl-head.cat3 { background:#004d40; }
+.cl-item {
+  padding:13px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex; align-items:flex-start; gap:12px;
+}
+.cl-item:last-child { border-bottom:none; }
+.cl-item:nth-child(even) { background:#fafbff; }
+.cl-num {
+  width:22px; height:22px; border-radius:50%;
+  background:var(--teal-light); color:var(--teal);
+  font-size:11px; font-weight:700; font-family:var(--mono);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; margin-top:1px;
+}
+.cl-text { flex:1; }
+.cl-main { font-size:13px; font-weight:500; color:var(--ink); line-height:1.4; }
+.cl-sub  { font-size:11px; color:var(--ink3); margin-top:2px; }
+.radio-group { display:flex; gap:6px; flex-shrink:0; padding-top:2px; }
+.r-btn {
+  padding:5px 12px; border-radius:20px; font-size:11px; font-weight:700;
+  border:1.5px solid var(--line); background:var(--white); color:var(--ink3);
+  cursor:pointer; font-family:'IBM Plex Sans',sans-serif; transition:all .15s;
+}
+.r-btn:hover { border-color:var(--teal); color:var(--teal); }
+.r-btn.yes { background:var(--green-light); border-color:var(--green); color:var(--green); }
+.r-btn.no  { background:var(--red-light);  border-color:var(--red);   color:var(--red); }
+.r-btn.na  { background:var(--bg);         border-color:var(--ink3);  color:var(--ink3); }
+
+/* ── Form Actions ── */
+.form-actions {
+  display:flex; gap:10px; flex-wrap:wrap;
+  padding:16px 0;
+}
+.btn-reset {
+  padding:11px 24px; border-radius:10px; font-size:14px; font-weight:600;
+  cursor:pointer; border:1.5px solid var(--line); background:var(--white);
+  color:var(--ink3); font-family:'IBM Plex Sans',sans-serif; transition:all .15s;
+}
+.btn-reset:hover { border-color:var(--coral); color:var(--coral); }
+.btn-save {
+  padding:11px 28px; border-radius:10px; font-size:14px; font-weight:700;
+  cursor:pointer; border:none;
+  background:var(--teal); color:var(--white);
+  font-family:'IBM Plex Sans',sans-serif;
+  box-shadow:0 4px 14px rgba(0,137,123,.3);
+  transition:all .15s; display:flex; align-items:center; gap:8px;
+}
+.btn-save:hover { background:#00796b; transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,137,123,.4); }
+.btn-save:active { transform:translateY(0); }
+
+/* ── Records ── */
+.records-card {
+  background:var(--white); border-radius:var(--r);
+  border:1px solid var(--line); overflow:hidden;
+  box-shadow:var(--shadow-sm);
+}
+.records-toolbar {
+  padding:14px 18px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; flex-wrap:wrap; background:var(--bg);
+}
+.records-count { font-size:13px; font-weight:700; color:var(--ink); }
+.toolbar-right { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.search-box {
+  border:1.5px solid var(--line); border-radius:8px;
+  padding:7px 12px; font-size:13px;
+  font-family:'IBM Plex Sans',sans-serif; color:var(--ink);
+  outline:none; background:var(--white); width:180px; transition:border .2s;
+}
+.search-box:focus { border-color:var(--teal); width:220px; }
+.btn-danger {
+  padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600;
+  cursor:pointer; border:1.5px solid #ffcdd2; background:#fff;
+  color:var(--red); font-family:'IBM Plex Sans',sans-serif; transition:all .15s;
+}
+.btn-danger:hover { background:var(--red-light); border-color:var(--red); }
+
+/* Record row actions */
+.tbl-btns { display:flex; gap:5px; }
+.tbl-btn {
+  padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600;
+  cursor:pointer; border:1.5px solid var(--line); background:var(--white);
+  color:var(--ink3); font-family:'IBM Plex Sans',sans-serif; transition:all .15s;
+  white-space:nowrap;
+}
+.tbl-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tbl-btn.del:hover { border-color:var(--red); color:var(--red); background:var(--red-light); }
+
+/* ── Toast ── */
+.toast {
+  position:fixed; bottom:24px; right:16px; left:16px;
+  max-width:360px; margin:0 auto;
+  background:var(--ink); color:#fff;
+  padding:12px 20px; border-radius:10px;
+  font-size:13px; font-weight:600;
+  box-shadow:var(--shadow-lg);
+  transform:translateY(100px); opacity:0;
+  transition:all .35s cubic-bezier(.22,.68,0,1.2);
+  z-index:999; display:flex; align-items:center; gap:8px;
+}
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.ok   { background:var(--teal); }
+.toast.err  { background:var(--red); }
+
+/* ── Empty State ── */
+.empty {
+  text-align:center; padding:48px 20px; color:var(--ink3);
+}
+.empty-icon { font-size:40px; margin-bottom:12px; display:block; }
+.empty p { font-size:14px; }
+
+/* ── Spinner ── */
+.spinner {
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid rgba(0,137,123,.2); border-top-color:var(--teal);
+  animation:spin .7s linear infinite; display:inline-block; vertical-align:middle;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--line); border-radius:2px; }
+
+/* ── Mobile tweaks ── */
+@media(max-width:480px) {
+  .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .form-grid { grid-template-columns:1fr; }
+  .cl-item { flex-direction:column; gap:10px; }
+  .radio-group { justify-content:flex-start; }
+  .charts-row { grid-template-columns:1fr; }
+  .search-box { width:140px; }
+  .search-box:focus { width:160px; }
+  .data-table { font-size:12px; }
+  .data-table th, .data-table td { padding:8px 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-icon">🧴</div>
+    <div class="header-text">
+      <h1>Hand Hygiene Monitoring</h1>
+      <p>Kampong Chhnang Provincial Hospital · IPC</p>
+    </div>
+    <div class="header-date" id="todayBadge"></div>
+  </div>
+</div>
+
+<!-- GAS Bar -->
+<div class="gas-bar">
+  <div class="gas-inner">
+    <div class="gas-dot" id="gasDot"></div>
+    <span class="gas-status" id="gasLabel">Connecting…</span>
+    <input class="gas-url" id="gasUrlInput" placeholder="Google Apps Script URL…" oninput="onGasUrlChange()">
+    <button class="btn-sm" onclick="pingGas()">Connect</button>
+    <button class="btn-sm" onclick="syncFromGas()" id="syncBtn">☁ Pull</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-inner">
+    <button class="nav-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+    <button class="nav-btn" onclick="switchTab('assess')">📋 Assess</button>
+    <button class="nav-btn" onclick="switchTab('records')">🗂 Records</button>
+  </div>
+</nav>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div class="page active" id="page-dashboard">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Overview</h2>
+      <p>Compliance summary across all departments</p>
+    </div>
+
+    <div class="export-row">
+      <button class="btn-export" onclick="exportExcel()">📊 Excel</button>
+      <button class="btn-export" onclick="exportSummaryPDF()">📄 Summary PDF</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--kpi-color:var(--teal)">
+        <div class="kpi-label">Overall</div>
+        <div class="kpi-value" id="kpi-overall">—</div>
+        <div class="kpi-sub">All categories</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:#0288d1">
+        <div class="kpi-label">Sanitation</div>
+        <div class="kpi-value" id="kpi-san">—</div>
+        <div class="kpi-sub">Product & use</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:#7b1fa2">
+        <div class="kpi-label">5 Moments</div>
+        <div class="kpi-value" id="kpi-moments">—</div>
+        <div class="kpi-sub">WHO compliance</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:#e65100">
+        <div class="kpi-label">6 Steps</div>
+        <div class="kpi-value" id="kpi-steps">—</div>
+        <div class="kpi-sub">Technique</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:var(--ink3)">
+        <div class="kpi-label">Assessments</div>
+        <div class="kpi-value" id="kpi-total">0</div>
+        <div class="kpi-sub">Recorded</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <h4>By Category</h4>
+        <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h4>Top Departments</h4>
+        <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-head">Department Summary</div>
+      <div class="scroll-x">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>N</th>
+              <th>Sanitation</th>
+              <th>5 Moments</th>
+              <th>6 Steps</th>
+              <th>Overall</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody">
+            <tr><td colspan="7"><div class="empty"><span class="empty-icon">📭</span><p>No data yet. Start an assessment.</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ASSESS ══════════ -->
+<div class="page" id="page-assess">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>New Assessment</h2>
+      <p>Record a hand hygiene observation</p>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><span class="icon">🏥</span> Observation Details</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Department</label>
+          <select id="f-dept"><option value="">— Select —</option></select>
+        </div>
+        <div class="field">
+          <label>Observer Name</label>
+          <input type="text" id="f-observer" placeholder="Full name">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label>Staff Role</label>
+          <select id="f-role">
+            <option value="">— Select —</option>
+            <option>Physician</option>
+            <option>Nurse</option>
+            <option>Midwife</option>
+            <option>Lab Technician</option>
+            <option>Nursing Student</option>
+            <option>Cleaner / Support Staff</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Shift</label>
+          <select id="f-shift">
+            <option>Morning (07:00–13:00)</option>
+            <option>Afternoon (13:00–19:00)</option>
+            <option>Night (19:00–07:00)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category 1 -->
+    <div class="cl-card">
+      <div class="cl-head">🧴 Category 1 — Hand Sanitation</div>
+      <div id="cl-sanitation"></div>
+    </div>
+
+    <!-- Category 2 -->
+    <div class="cl-card">
+      <div class="cl-head cat2">🖐 Category 2 — Five Moments (WHO)</div>
+      <div id="cl-moments"></div>
+    </div>
+
+    <!-- Category 3 -->
+    <div class="cl-card">
+      <div class="cl-head cat3">🔢 Category 3 — Six Steps Technique</div>
+      <div id="cl-steps"></div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-reset" onclick="resetForm()">↺ Reset</button>
+      <button class="btn-save" onclick="submitAssessment()">💾 Save Assessment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ RECORDS ══════════ -->
+<div class="page" id="page-records">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Records</h2>
+      <p>Tap <strong>📄 PDF</strong> on any row to download that assessment</p>
+    </div>
+
+    <div class="export-row">
+      <button class="btn-export" onclick="exportExcel()">📊 Export Excel</button>
+      <button class="btn-export" onclick="exportSummaryPDF()">📄 Summary PDF</button>
+    </div>
+
+    <div class="records-card">
+      <div class="records-toolbar">
+        <span class="records-count" id="recordCount">0 records</span>
+        <div class="toolbar-right">
+          <input class="search-box" id="searchInput" placeholder="Search…" oninput="renderRecords()">
+          <button class="btn-sm" onclick="syncFromGas()" id="syncBtn2">☁ Sync</button>
+          <button class="btn-danger" onclick="clearAllRecords()">🗑 Clear</button>
+        </div>
+      </div>
+      <div class="scroll-x">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Department</th>
+              <th>Observer</th>
+              <th>Role</th>
+              <th>San.</th>
+              <th>5 Mom.</th>
+              <th>6 Steps</th>
+              <th>Overall</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody">
+            <tr><td colspan="10"><div class="empty"><span class="empty-icon">🗂</span><p>No records yet.</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONSTANTS ────────────────────────────────────────────────
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxt8T4lTGVr2xtPuq3NosWlobad_DS3iPk9H5aQSV1mcfcRCbNrVaaX8uooWpTjOMjD/exec';
+
+const DEPARTMENTS = [
+  'OPD','Emergency','Hepatitis Clinic','NCD','ENT',
+  'Oral Health','Eye Unit','Dialysis','General Medicine',
+  'ICU','Operation Theater','Surgery A','Surgery B',
+  'Gynecology','Maternity','Laboratory','Imaging','Pediatry'
+];
+
+const DEPT_COLORS = [
+  '#00897b','#1976d2','#f57c00','#c62828','#7b1fa2',
+  '#00838f','#ad1457','#558b2f','#1565c0','#6a1b9a',
+  '#ef6c00','#2e7d32','#d84315','#0277bd','#4527a0',
+  '#00695c','#283593','#e65100'
+];
+
+const CHECKLIST = {
+  sanitation:[
+    {id:'s1',label:'ABHR (alcohol-based hand rub) available at point of care',sub:'Dispenser present and functional'},
+    {id:'s2',label:'Soap and clean water available at sink',sub:'Hand-washing facility accessible'},
+    {id:'s3',label:'Single-use paper towels or clean cloth for drying',sub:'No shared towel'},
+    {id:'s4',label:'Staff uses ABHR when hands are not visibly soiled',sub:'Correct product selected'},
+    {id:'s5',label:'Staff uses soap and water when hands are visibly dirty or after spore exposure',sub:'Correct indication followed'},
+    {id:'s6',label:'Sufficient volume used (2–3 mL ABHR; enough soap to lather)',sub:'Adequate quantity observed'},
+    {id:'s7',label:'No rings, bracelets, or artificial nails during clinical care',sub:'Bare below elbows policy'},
+  ],
+  moments:[
+    {id:'m1',label:'Moment 1 — Before touching a patient',sub:'Hand hygiene before patient contact'},
+    {id:'m2',label:'Moment 2 — Before a clean / aseptic procedure',sub:'Hand hygiene before aseptic task'},
+    {id:'m3',label:'Moment 3 — After body fluid exposure risk',sub:'Hand hygiene after blood / fluid exposure'},
+    {id:'m4',label:'Moment 4 — After touching a patient',sub:'Hand hygiene after patient contact'},
+    {id:'m5',label:'Moment 5 — After touching patient surroundings',sub:'Hand hygiene after patient environment'},
+  ],
+  steps:[
+    {id:'t1',label:'Step 1 — Apply ABHR to palm (or wet hands)',sub:'Adequate product applied'},
+    {id:'t2',label:'Step 2 — Rub palms together',sub:'Palm-to-palm coverage'},
+    {id:'t3',label:'Step 3 — Right palm over left dorsum, fingers interlaced; vice versa',sub:'Backs of hands covered'},
+    {id:'t4',label:'Step 4 — Palm to palm with fingers interlaced',sub:'Between fingers covered'},
+    {id:'t5',label:'Step 5 — Backs of fingers to opposing palms, fingers interlocked',sub:'Knuckles covered'},
+    {id:'t6',label:'Step 6 — Rotational rubbing of thumbs and fingertips',sub:'Thumbs and fingertips covered'},
+    {id:'t7',label:'Duration ≥ 20 sec (ABHR) or 40–60 sec (soap and water)',sub:'Adequate duration observed'},
+    {id:'t8',label:'Hands dried thoroughly; tap closed with towel (soap/water only)',sub:'Complete drying; correct tap-off technique'},
+  ]
+};
+
+// ── STATE ────────────────────────────────────────────────────
+let records = JSON.parse(localStorage.getItem('hh_records')||'[]');
+let answers  = {};
+let gasUrl   = localStorage.getItem('hh_gas_url') || GAS_URL;
+let catChart, deptChart;
+
+// ── INIT ─────────────────────────────────────────────────────
+function init() {
+  const now = new Date();
+  document.getElementById('todayBadge').textContent =
+    now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+  document.getElementById('gasUrlInput').value = gasUrl;
+
+  // Dept dropdown
+  const sel = document.getElementById('f-dept');
+  DEPARTMENTS.forEach(d => {
+    const o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
+  });
+
+  buildCL('sanitation', CHECKLIST.sanitation);
+  buildCL('moments',    CHECKLIST.moments);
+  buildCL('steps',      CHECKLIST.steps);
+
+  renderAll();
+  updateGasStatus('sync');
+  setTimeout(pingGas, 700);
+}
+
+function buildCL(cat, items) {
+  const el = document.getElementById(`cl-${cat}`);
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'cl-item';
+    div.innerHTML = `
+      <div class="cl-num">${i+1}</div>
+      <div class="cl-text">
+        <div class="cl-main">${item.label}</div>
+        <div class="cl-sub">${item.sub}</div>
+      </div>
+      <div class="radio-group">
+        <button class="r-btn" data-id="${item.id}" onclick="setAns('${item.id}','yes',this)">YES</button>
+        <button class="r-btn" data-id="${item.id}" onclick="setAns('${item.id}','no',this)">NO</button>
+        <button class="r-btn" data-id="${item.id}" onclick="setAns('${item.id}','na',this)">N/A</button>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+// ── NAV ──────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['dashboard','assess','records'].forEach(t => {
+    document.getElementById(`page-${t}`).classList.toggle('active', t===tab);
+  });
+  document.querySelectorAll('.nav-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['dashboard','assess','records'][i]===tab);
+  });
+  if(tab==='dashboard') renderAll();
+  if(tab==='records')   renderRecords();
+}
+
+// ── ASSESSMENT ───────────────────────────────────────────────
+function setAns(id, val, btn) {
+  answers[id] = val;
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(b => b.className='r-btn');
+  btn.classList.add(val);
+}
+
+function calcScore(ids) {
+  const rel = ids.filter(id => answers[id] && answers[id]!=='na');
+  return rel.length ? Math.round(rel.filter(id=>answers[id]==='yes').length/rel.length*100) : null;
+}
+
+async function submitAssessment() {
+  const dept     = document.getElementById('f-dept').value;
+  const observer = document.getElementById('f-observer').value.trim();
+  const date     = document.getElementById('f-date').value;
+  const role     = document.getElementById('f-role').value;
+  const shift    = document.getElementById('f-shift').value;
+
+  if(!dept||!observer||!date||!role) { showToast('Fill all required fields','err'); return; }
+  const total = Object.values(CHECKLIST).flat().length;
+  if(Object.keys(answers).length < Math.ceil(total*.5)) {
+    showToast('Answer at least 50% of checklist items','err'); return;
+  }
+
+  const san = calcScore(CHECKLIST.sanitation.map(i=>i.id));
+  const mom = calcScore(CHECKLIST.moments.map(i=>i.id));
+  const stp = calcScore(CHECKLIST.steps.map(i=>i.id));
+  const all = [san,mom,stp].filter(x=>x!==null);
+  const overall = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : null;
+
+  const rec = {id:Date.now(),dept,observer,date,role,shift,answers:{...answers},scores:{san,mom,stp,overall}};
+  records.push(rec); saveLocal();
+  showToast('Assessment saved!','ok');
+  resetForm(); renderAll();
+
+  if(gasUrl) {
+    updateGasStatus('sync');
+    try {
+      const p = new URLSearchParams({action:'save',payload:JSON.stringify(rec)});
+      const r = await fetch(`${gasUrl}?${p}`);
+      const j = await r.json();
+      j.ok ? (showToast('Synced to Google Sheet ☁','ok'), updateGasStatus('ok'))
+           : (showToast('GAS error: '+j.message,'err'), updateGasStatus('err'));
+    } catch(e) { showToast('Cannot reach GAS','err'); updateGasStatus('err'); }
+  }
+}
+
+function resetForm() {
+  answers = {};
+  document.querySelectorAll('.r-btn').forEach(b => b.className='r-btn');
+  ['f-observer','f-role','f-dept'].forEach(id => document.getElementById(id).value='');
+}
+
+function deleteRecord(id) {
+  records = records.filter(r=>r.id!==id); saveLocal(); renderAll(); renderRecords();
+  showToast('Record deleted');
+}
+
+function clearAllRecords() {
+  if(!confirm('Delete ALL records?')) return;
+  records=[]; saveLocal(); renderAll(); renderRecords();
+  showToast('All records cleared');
+}
+
+function saveLocal() { localStorage.setItem('hh_records',JSON.stringify(records)); }
+
+// ── GAS ──────────────────────────────────────────────────────
+function onGasUrlChange() {
+  gasUrl = document.getElementById('gasUrlInput').value.trim();
+  localStorage.setItem('hh_gas_url', gasUrl);
+  updateGasStatus('idle');
+}
+
+function updateGasStatus(s) {
+  const dot=document.getElementById('gasDot'), lbl=document.getElementById('gasLabel');
+  dot.className='gas-dot';
+  if(s==='ok')   { dot.classList.add('ok');   lbl.textContent='Connected ✓'; }
+  else if(s==='err')  { dot.classList.add('err');  lbl.textContent='Cannot reach GAS'; }
+  else if(s==='sync') { dot.classList.add('sync'); lbl.textContent='Connecting…'; }
+  else { lbl.textContent='URL set — click Connect'; }
+}
+
+async function pingGas() {
+  if(!gasUrl) return;
+  updateGasStatus('sync');
+  try {
+    const r=await fetch(`${gasUrl}?action=ping`);
+    const j=await r.json();
+    j.ok ? (updateGasStatus('ok'), showToast('Cloud sync connected ☁','ok'))
+         : (updateGasStatus('err'), showToast('GAS error','err'));
+  } catch(e) { updateGasStatus('err'); showToast('Cannot reach GAS — check deployment','err'); }
+}
+
+async function syncFromGas() {
+  if(!gasUrl) { showToast('No GAS URL configured','err'); return; }
+  updateGasStatus('sync');
+  ['syncBtn','syncBtn2'].forEach(id => { const b=document.getElementById(id); if(b) b.innerHTML='<span class="spinner"></span>'; });
+  try {
+    const r=await fetch(`${gasUrl}?action=getAll`);
+    const j=await r.json();
+    if(j.ok) {
+      const ids=new Set(j.records.map(r=>String(r.id)));
+      records=[...j.records,...records.filter(r=>!ids.has(String(r.id)))];
+      saveLocal(); renderAll(); renderRecords();
+      updateGasStatus('ok');
+      showToast(`Pulled ${j.records.length} records from Sheet ☁`,'ok');
+    } else { updateGasStatus('err'); showToast('Sync failed: '+j.message,'err'); }
+  } catch(e) { updateGasStatus('err'); showToast('Cannot reach GAS','err'); }
+  finally {
+    document.getElementById('syncBtn').textContent='☁ Pull';
+    const b2=document.getElementById('syncBtn2'); if(b2) b2.textContent='☁ Sync';
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+const avg    = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+const scCol  = v => v===null?'var(--ink3)':v>=75?'var(--green)':v>=50?'var(--amber)':'var(--red)';
+const scCls  = v => v===null?'score-warn':v>=75?'score-good':'score-warn';
+const scRGB  = v => v===null?[107,114,128]:v>=75?[46,125,50]:v>=50?[245,124,0]:[198,40,40];
+
+function buildDD() {
+  const dd={};
+  DEPARTMENTS.forEach(d=>{dd[d]={san:[],mom:[],stp:[],overall:[],count:0};});
+  records.forEach(r=>{
+    if(!dd[r.dept])return; const d=dd[r.dept]; d.count++;
+    if(r.scores.san!==null)d.san.push(r.scores.san);
+    if(r.scores.mom!==null)d.mom.push(r.scores.mom);
+    if(r.scores.stp!==null)d.stp.push(r.scores.stp);
+    if(r.scores.overall!==null)d.overall.push(r.scores.overall);
+  }); return dd;
+}
+
+function pBar(v) {
+  if(v===null) return `<span style="color:var(--ink3);font-family:var(--mono);font-size:12px">—</span>`;
+  const col = scCol(v);
+  return `<div class="pbar-wrap"><span class="val-text" style="color:${col}">${v}%</span><div class="pbar"><div class="pbar-fill" style="width:${v}%;background:${col}"></div></div></div>`;
+}
+
+function fmtScore(v) {
+  if(v===null||v===undefined) return `<span style="color:var(--ink3)">—</span>`;
+  const col=scCol(v);
+  return `<span style="color:${col};font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px">${v}%</span>`;
+}
+
+function statusBadge(v) {
+  if(v===null) return `<span class="badge badge-none">—</span>`;
+  if(v>=75)   return `<span class="badge badge-good">✓ Good</span>`;
+  if(v>=50)   return `<span class="badge badge-warn">⚠ Needs Work</span>`;
+  return           `<span class="badge badge-bad">✗ Poor</span>`;
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function renderAll() {
+  const dd=buildDD();
+  const allOv  = records.filter(r=>r.scores.overall!==null).map(r=>r.scores.overall);
+  const allSan = records.filter(r=>r.scores.san!==null).map(r=>r.scores.san);
+  const allMom = records.filter(r=>r.scores.mom!==null).map(r=>r.scores.mom);
+  const allStp = records.filter(r=>r.scores.stp!==null).map(r=>r.scores.stp);
+
+  const setK=(id,arr)=>{const v=avg(arr);const el=document.getElementById(id);el.textContent=v!==null?`${v}%`:'—';el.style.color=scCol(v);};
+  setK('kpi-overall',allOv); setK('kpi-san',allSan); setK('kpi-moments',allMom); setK('kpi-steps',allStp);
+  document.getElementById('kpi-total').textContent=records.length;
+
+  // Summary table
+  const tb=document.getElementById('summaryBody'); tb.innerHTML=''; let any=false;
+  DEPARTMENTS.forEach((d,i)=>{
+    const x=dd[d]; if(!x.count)return; any=true;
+    const ov=avg(x.overall),sv=avg(x.san),mv=avg(x.mom),tv=avg(x.stp);
+    tb.innerHTML+=`<tr>
+      <td><span class="dept-dot" style="background:${DEPT_COLORS[i]}"></span><strong>${d}</strong></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink3)">${x.count}</td>
+      <td>${pBar(sv)}</td><td>${pBar(mv)}</td><td>${pBar(tv)}</td><td>${pBar(ov)}</td>
+      <td>${statusBadge(ov)}</td></tr>`;
+  });
+  if(!any) tb.innerHTML=`<tr><td colspan="7"><div class="empty"><span class="empty-icon">📭</span><p>No data yet.</p></div></td></tr>`;
+
+  // Category doughnut
+  const cCtx=document.getElementById('categoryChart').getContext('2d');
+  if(catChart)catChart.destroy();
+  catChart=new Chart(cCtx,{
+    type:'doughnut',
+    data:{labels:['Sanitation','5 Moments','6 Steps'],datasets:[{data:[avg(allSan)??0,avg(allMom)??0,avg(allStp)??0],
+      backgroundColor:['#00897b','#7b1fa2','#e65100'],
+      borderColor:'#fff',borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{color:'#3d4166',font:{size:11},padding:12,boxWidth:12}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}}}}
+  });
+
+  // Dept bar
+  const dCtx=document.getElementById('deptChart').getContext('2d');
+  if(deptChart)deptChart.destroy();
+  const sorted=DEPARTMENTS.map((d,i)=>({d,v:avg(dd[d].overall)??0,c:DEPT_COLORS[i]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,8);
+  deptChart=new Chart(dCtx,{
+    type:'bar',
+    data:{labels:sorted.map(x=>x.d),datasets:[{data:sorted.map(x=>x.v),
+      backgroundColor:sorted.map(x=>x.c+'22'),
+      borderColor:sorted.map(x=>x.c),
+      borderWidth:2,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x}%`}}},
+      scales:{
+        x:{min:0,max:100,ticks:{color:'#6b7280',callback:v=>v+'%',font:{size:10}},grid:{color:'#e5e7f0'},border:{color:'transparent'}},
+        y:{ticks:{color:'#1a1d2e',font:{size:10}},grid:{display:false},border:{color:'transparent'}}
+      }}
+  });
+}
+
+function renderRecords() {
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const f=records.filter(r=>r.dept.toLowerCase().includes(q)||r.observer.toLowerCase().includes(q)).sort((a,b)=>b.id-a.id);
+  document.getElementById('recordCount').textContent=`${f.length} record${f.length!==1?'s':''}`;
+  const tb=document.getElementById('recordsBody');
+  if(!f.length){tb.innerHTML=`<tr><td colspan="10"><div class="empty"><span class="empty-icon">🗂</span><p>No records found.</p></div></td></tr>`;return;}
+  tb.innerHTML=f.map((r,i)=>`<tr>
+    <td style="color:var(--ink3);font-family:'IBM Plex Mono',monospace;font-size:11px">${f.length-i}</td>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap">${r.date}</td>
+    <td><strong>${r.dept}</strong></td>
+    <td style="font-size:12px">${r.observer}</td>
+    <td style="color:var(--ink3);font-size:11px">${(r.role||'').split('/')[0].trim()}</td>
+    <td>${fmtScore(r.scores.san)}</td>
+    <td>${fmtScore(r.scores.mom)}</td>
+    <td>${fmtScore(r.scores.stp)}</td>
+    <td>${fmtScore(r.scores.overall)}</td>
+    <td><div class="tbl-btns">
+      <button class="tbl-btn" onclick="exportRecordPDF(${r.id})">📄 PDF</button>
+      <button class="tbl-btn del" onclick="deleteRecord(${r.id})">🗑</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+// ── EXPORT EXCEL ─────────────────────────────────────────────
+function exportExcel() {
+  if(!records.length){showToast('No records to export','err');return;}
+  const wb=XLSX.utils.book_new(), dd=buildDD();
+  const s1=[['Department','Assessments','Sanitation (%)','5 Moments (%)','6 Steps (%)','Overall (%)','Status']];
+  DEPARTMENTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.overall);s1.push([d,x.count,avg(x.san)??'—',avg(x.mom)??'—',avg(x.stp)??'—',ov??'—',ov===null?'No data':ov>=75?'Good':ov>=50?'Needs Improvement':'Poor']);});
+  const ws1=XLSX.utils.aoa_to_sheet(s1);ws1['!cols']=[{wch:22},{wch:13},{wch:16},{wch:16},{wch:14},{wch:12},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Summary');
+  const s2=[['ID','Date','Department','Observer','Role','Shift','Sanitation','5 Moments','6 Steps','Overall','S1','S2','S3','S4','S5','S6','S7','M1','M2','M3','M4','M5','T1','T2','T3','T4','T5','T6','T7','T8']];
+  records.forEach(r=>{const a=r.answers||{};s2.push([r.id,r.date,r.dept,r.observer,r.role,r.shift,r.scores.san??'',r.scores.mom??'',r.scores.stp??'',r.scores.overall??'',a.s1||'',a.s2||'',a.s3||'',a.s4||'',a.s5||'',a.s6||'',a.s7||'',a.m1||'',a.m2||'',a.m3||'',a.m4||'',a.m5||'',a.t1||'',a.t2||'',a.t3||'',a.t4||'',a.t5||'',a.t6||'',a.t7||'',a.t8||'']);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Raw Records');
+  XLSX.writeFile(wb,`KCPH_HandHygiene_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('Excel exported!','ok');
+}
+
+// ── EXPORT SUMMARY PDF ────────────────────────────────────────
+function exportSummaryPDF() {
+  if(!records.length){showToast('No records to export','err');return;}
+  const{jsPDF}=window.jspdf, doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const dt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}), dd=buildDD();
+
+  // Header
+  doc.setFillColor(0,137,123); doc.rect(0,0,297,28,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Monitoring — Summary Report',14,12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,238);
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,20);
+  doc.text(`Generated: ${dt}  |  Total: ${records.length} assessments`,14,26);
+
+  // KPIs
+  const allOv=records.filter(r=>r.scores.overall!==null).map(r=>r.scores.overall);
+  const allSan=records.filter(r=>r.scores.san!==null).map(r=>r.scores.san);
+  const allMom=records.filter(r=>r.scores.mom!==null).map(r=>r.scores.mom);
+  const allStp=records.filter(r=>r.scores.stp!==null).map(r=>r.scores.stp);
+  const kpis=[{l:'Overall',v:avg(allOv)},{l:'Sanitation',v:avg(allSan)},{l:'5 Moments',v:avg(allMom)},{l:'6 Steps',v:avg(allStp)},{l:'Assessments',v:records.length,raw:true}];
+  let kx=14;
+  kpis.forEach(k=>{
+    doc.setFillColor(245,246,250); doc.roundedRect(kx,32,52,18,2,2,'F');
+    doc.setFontSize(7); doc.setTextColor(107,114,128); doc.setFont('helvetica','normal');
+    doc.text(k.l.toUpperCase(),kx+3,38);
+    const col=k.raw?[29,53,87]:scRGB(k.v);
+    doc.setTextColor(...col); doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text(k.v!==null?`${k.v}${k.raw?'':'%'}`:'—',kx+3,48);
+    kx+=55;
+  });
+
+  // Table
+  const rows=[];
+  DEPARTMENTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.overall);rows.push([d,x.count,avg(x.san)!==null?`${avg(x.san)}%`:'—',avg(x.mom)!==null?`${avg(x.mom)}%`:'—',avg(x.stp)!==null?`${avg(x.stp)}%`:'—',ov!==null?`${ov}%`:'—',ov===null?'—':ov>=75?'Good':ov>=50?'Needs Work':'Poor']);});
+
+  doc.autoTable({
+    head:[['Department','N','Sanitation','5 Moments','6 Steps','Overall','Status']],
+    body:rows, startY:54,
+    styles:{fontSize:9,cellPadding:3},
+    headStyles:{fillColor:[0,137,123],textColor:[255,255,255],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,246,250]},
+    bodyStyles:{textColor:[26,29,46]},
+    didParseCell:data=>{
+      if(data.column.index===6&&data.section==='body'){const t=data.cell.raw;data.cell.styles.textColor=t==='Good'?[46,125,50]:t==='Needs Work'?[245,124,0]:t==='Poor'?[198,40,40]:[107,114,128];data.cell.styles.fontStyle='bold';}
+      if(data.column.index>=2&&data.column.index<=5&&data.section==='body'){const v=parseInt(data.cell.raw);if(!isNaN(v))data.cell.styles.textColor=scRGB(v);}
+    }
+  });
+  const pg=doc.getNumberOfPages();
+  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(107,114,128);doc.setFont('helvetica','normal');doc.text(`KCPH IPC Program · Confidential | Page ${p} of ${pg}`,14,205);doc.text(`Generated: ${dt}`,240,205);}
+  doc.save(`KCPH_HandHygiene_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+  showToast('Summary PDF exported!','ok');
+}
+
+// ── INDIVIDUAL RECORD PDF ─────────────────────────────────────
+function exportRecordPDF(id) {
+  const r=records.find(x=>x.id===id);
+  if(!r){showToast('Record not found','err');return;}
+  const{jsPDF}=window.jspdf, doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const a=r.answers||{};
+  const printDt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+  // Header
+  doc.setFillColor(0,137,123); doc.rect(0,0,210,30,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Observation Report',14,13);
+  doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,238);
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,21);
+  doc.text(`Printed: ${printDt}`,14,27);
+
+  // Info row
+  doc.setFillColor(245,246,250); doc.rect(0,30,210,24,'F');
+  doc.setDrawColor(229,231,240); doc.setLineWidth(.3); doc.line(0,54,210,54);
+  const info=[{l:'Date',v:r.date},{l:'Department',v:r.dept},{l:'Observer',v:r.observer},{l:'Role',v:r.role},{l:'Shift',v:(r.shift||'').split(' ')[0]}];
+  let ix=14;
+  info.forEach(f=>{
+    doc.setFontSize(7); doc.setTextColor(107,114,128); doc.setFont('helvetica','normal'); doc.text(f.l.toUpperCase(),ix,37);
+    doc.setFontSize(9); doc.setTextColor(26,29,46); doc.setFont('helvetica','bold'); doc.text(f.v||'—',ix,45);
+    ix+=40;
+  });
+
+  // Score cards
+  const scrs=[{l:'Sanitation',v:r.scores.san},{l:'5 Moments',v:r.scores.mom},{l:'6 Steps',v:r.scores.stp},{l:'OVERALL',v:r.scores.overall,big:true}];
+  let sx=14;
+  scrs.forEach(s=>{
+    const col=scRGB(s.v);
+    doc.setFillColor(245,246,250); doc.roundedRect(sx,58,44,20,2,2,'F');
+    doc.setDrawColor(...col); doc.setLineWidth(.6); doc.roundedRect(sx,58,44,20,2,2,'S');
+    doc.setFontSize(7); doc.setTextColor(107,114,128); doc.setFont('helvetica','normal'); doc.text(s.l.toUpperCase(),sx+3,65);
+    doc.setFontSize(s.big?14:13); doc.setTextColor(...col); doc.setFont('helvetica','bold'); doc.text(s.v!==null?`${s.v}%`:'—',sx+3,75);
+    sx+=47;
+  });
+
+  // Checklists
+  const tBase={styles:{fontSize:8.5,cellPadding:2.8},headStyles:{fillColor:[0,137,123],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,246,250]},bodyStyles:{textColor:[26,29,46]},columnStyles:{0:{cellWidth:155},1:{cellWidth:25,halign:'center'}},
+    didParseCell:data=>{if(data.column.index===1&&data.section==='body'){const v=data.cell.raw;data.cell.styles.textColor=v==='YES'?[46,125,50]:v==='NO'?[198,40,40]:[107,114,128];data.cell.styles.fontStyle='bold';}}
+  };
+  const mkR=items=>items.map(item=>([item.label,(a[item.id]||'').toUpperCase()||'—']));
+  doc.autoTable({...tBase,head:[['Category 1 — Hand Sanitation','']],body:mkR(CHECKLIST.sanitation),startY:84});
+  doc.autoTable({...tBase,head:[['Category 2 — Five Moments (WHO)','']],body:mkR(CHECKLIST.moments),startY:doc.lastAutoTable.finalY+5});
+  doc.autoTable({...tBase,head:[['Category 3 — Six Steps Technique','']],body:mkR(CHECKLIST.steps),startY:doc.lastAutoTable.finalY+5});
+
+  // Remarks
+  const fy=doc.lastAutoTable.finalY+7;
+  if(fy<252){
+    doc.setFillColor(245,246,250); doc.roundedRect(10,fy,190,28,2,2,'F');
+    doc.setFontSize(8); doc.setTextColor(107,114,128); doc.setFont('helvetica','bold');
+    doc.text('OBSERVER REMARKS / RECOMMENDATIONS',14,fy+8);
+    doc.setDrawColor(229,231,240); doc.setLineWidth(.3);
+    for(let ln=0;ln<3;ln++) doc.line(14,fy+14+(ln*6),196,fy+14+(ln*6));
+  }
+
+  // Signature
+  const sy=Math.max(fy+36,262);
+  if(sy<278){
+    doc.setFontSize(8); doc.setTextColor(107,114,128); doc.setFont('helvetica','normal');
+    doc.text('Signature: ___________________________',14,sy);
+    doc.text('Date: ______________',140,sy);
+  }
+
+  // Footer
+  doc.setFontSize(7); doc.setTextColor(107,114,128); doc.setFont('helvetica','normal');
+  doc.text('KCPH IPC Program · Confidential',14,290);
+  doc.text(`ID: ${r.id}`,150,290);
+
+  doc.save(`KCPH_HH_${r.dept.replace(/\s+/g,'_')}_${r.date}.pdf`);
+  showToast(`PDF saved — ${r.dept}`,'ok');
+}
+
+// ── TOAST ────────────────────────────────────────────────────
+function showToast(msg, type='') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
