@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Hand Hygiene Monitoring — KCPH</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:16px;-webkit-text-size-adjust:100%;}
+body{font-family:'IBM Plex Sans',sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh;line-height:1.5;}
+
+/* ── Tokens ── */
+:root{
+  --teal:#00897b;--teal-d:#00695c;--teal-l:#e0f2f1;--teal-m:#4db6ac;
+  --blue:#1565c0;--blue-l:#e3f2fd;
+  --green:#2e7d32;--green-l:#e8f5e9;
+  --amber:#e65100;--amber-l:#fff3e0;
+  --red:#c62828;--red-l:#ffebee;
+  --ink:#1a202c;--ink2:#4a5568;--ink3:#718096;
+  --line:#e2e8f0;--white:#fff;--bg:#f0f4f8;
+  --sh1:0 1px 3px rgba(0,0,0,.08);
+  --sh2:0 4px 12px rgba(0,0,0,.1);
+  --sh3:0 8px 24px rgba(0,0,0,.12);
+  --r:12px;--mono:'IBM Plex Mono',monospace;
+}
+
+/* ── Header ── */
+.hdr{background:var(--white);border-bottom:3px solid var(--teal);padding:0 16px;position:sticky;top:0;z-index:300;box-shadow:var(--sh1);}
+.hdr-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:11px 0;}
+.hdr-ico{width:40px;height:40px;border-radius:10px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,137,123,.28);}
+.hdr-txt{flex:1;min-width:0;}
+.hdr-txt h1{font-size:clamp(13px,3.5vw,15px);font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hdr-txt p{font-size:10px;color:var(--ink3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.sync-chip{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:11px;cursor:pointer;transition:all .2s;}
+.sync-chip:hover{border-color:var(--teal);background:var(--teal-l);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#ccc;transition:background .3s;}
+.sync-dot.ok{background:var(--teal);box-shadow:0 0 0 3px rgba(0,137,123,.15);}
+.sync-dot.err{background:var(--red);box-shadow:0 0 0 3px rgba(198,40,40,.12);}
+.sync-dot.spin{animation:sdot .9s infinite;background:var(--amber);}
+@keyframes sdot{0%,100%{opacity:1}50%{opacity:.25}}
+.sync-label{font-weight:600;color:var(--ink2);}
+.hdr-date{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-l);border-radius:20px;padding:4px 10px;white-space:nowrap;font-weight:500;}
+
+/* ── GAS config (collapsible) ── */
+.gas-panel{background:var(--teal-l);border-bottom:1px solid #b2dfdb;display:none;}
+.gas-panel.open{display:block;}
+.gas-inner{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.gas-url{flex:1;min-width:200px;max-width:480px;border:1.5px solid #b2dfdb;border-radius:8px;padding:6px 12px;font-size:12px;font-family:var(--mono);color:var(--ink);outline:none;background:var(--white);}
+.gas-url:focus{border-color:var(--teal);}
+.btn-pill{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--teal);background:var(--white);color:var(--teal);font-family:'IBM Plex Sans',sans-serif;transition:all .15s;white-space:nowrap;}
+.btn-pill:hover{background:var(--teal);color:var(--white);}
+.gas-note{font-size:11px;color:var(--teal-d);}
+
+/* ── Nav ── */
+.nav{background:var(--white);border-bottom:1px solid var(--line);position:sticky;top:64px;z-index:200;box-shadow:var(--sh1);}
+.nav-in{max-width:1100px;margin:0 auto;display:flex;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+.nav-in::-webkit-scrollbar{display:none;}
+.nb{flex:1;min-width:0;padding:12px 10px;font-size:12px;font-weight:600;color:var(--ink3);cursor:pointer;border:none;background:none;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;}
+.nb:hover{color:var(--teal);background:var(--teal-l);}
+.nb.active{color:var(--teal);border-bottom-color:var(--teal);background:var(--teal-l);}
+
+/* ── Page shell ── */
+.page{display:none;}
+.page.active{display:block;}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+
+/* ── Section head ── */
+.sh{margin-bottom:20px;}
+.sh h2{font-size:20px;font-weight:700;color:var(--ink);}
+.sh p{font-size:13px;color:var(--ink3);margin-top:3px;}
+
+/* ── KPI grid ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--white);border-radius:var(--r);padding:16px;box-shadow:var(--sh1);border:1px solid var(--line);border-top:3px solid var(--kc,var(--teal));position:relative;overflow:hidden;}
+.kpi::after{content:'';position:absolute;top:-18px;right:-18px;width:64px;height:64px;border-radius:50%;background:var(--kc,var(--teal));opacity:.07;}
+.kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:8px;}
+.kpi-val{font-family:var(--mono);font-size:28px;font-weight:500;line-height:1;color:var(--kc,var(--teal));}
+.kpi-sub{font-size:10px;color:var(--ink3);margin-top:4px;}
+
+/* ── Charts ── */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+@media(max-width:600px){.chart-row{grid-template-columns:1fr;}}
+.cc{background:var(--white);border-radius:var(--r);border:1px solid var(--line);padding:18px;box-shadow:var(--sh1);}
+.cc h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:14px;}
+.cw{position:relative;height:200px;}
+.cw-tall{position:relative;height:260px;}
+
+/* ── Cards ── */
+.card{background:var(--white);border-radius:var(--r);border:1px solid var(--line);overflow:hidden;box-shadow:var(--sh1);margin-bottom:20px;}
+.card-head{padding:13px 18px;border-bottom:1px solid var(--line);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);background:var(--bg);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.card-head span{font-size:13px;font-weight:700;color:var(--ink);text-transform:none;letter-spacing:0;}
+
+/* ── Tables ── */
+.sx{overflow-x:auto;}
+.dt{width:100%;border-collapse:collapse;font-size:13px;}
+.dt th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);border-bottom:2px solid var(--line);background:var(--bg);white-space:nowrap;}
+.dt td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle;}
+.dt tr:last-child td{border-bottom:none;}
+.dt tr:hover td{background:#fafcff;}
+.dd{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:middle;}
+
+/* Progress bar */
+.pb-wrap{display:flex;align-items:center;gap:8px;}
+.pb{height:6px;width:60px;background:var(--line);border-radius:3px;overflow:hidden;flex-shrink:0;}
+.pb-f{height:100%;border-radius:3px;}
+.pv{font-family:var(--mono);font-size:12px;font-weight:500;min-width:34px;}
+
+/* Badges */
+.bdg{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.bdg-g{background:var(--green-l);color:var(--green);}
+.bdg-a{background:var(--amber-l);color:var(--amber);}
+.bdg-r{background:var(--red-l);color:var(--red);}
+.bdg-n{background:var(--bg);color:var(--ink3);}
+
+/* ── Export row ── */
+.exp-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.btn-exp{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);background:var(--white);color:var(--ink2);font-family:'IBM Plex Sans',sans-serif;box-shadow:var(--sh1);transition:all .15s;}
+.btn-exp:hover{border-color:var(--teal);color:var(--teal);box-shadow:var(--sh2);}
+
+/* ── Form ── */
+.fsec{background:var(--white);border-radius:var(--r);border:1px solid var(--line);padding:20px;box-shadow:var(--sh1);margin-bottom:16px;}
+.fsec-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:16px;display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line);}
+.fsec-ico{width:30px;height:30px;border-radius:8px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;}
+.fld{display:flex;flex-direction:column;gap:5px;}
+.fld label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);}
+.fld input,.fld select{border:1.5px solid var(--line);border-radius:8px;padding:9px 12px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);outline:none;background:var(--white);transition:border .2s;appearance:none;}
+.fld input:focus,.fld select:focus{border-color:var(--teal);}
+
+/* ── Checklist ── */
+.clc{background:var(--white);border-radius:var(--r);border:1px solid var(--line);overflow:hidden;box-shadow:var(--sh1);margin-bottom:14px;}
+.clh{padding:12px 18px;font-size:13px;font-weight:700;color:var(--white);background:var(--teal);display:flex;align-items:center;gap:8px;}
+.clh.h2{background:#00695c;}.clh.h3{background:#004d40;}
+.cli{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:10px;}
+.cli:last-child{border-bottom:none;}
+.cli:nth-child(even){background:#fafcff;}
+.cln{width:22px;height:22px;border-radius:50%;background:var(--teal-l);color:var(--teal);font-size:11px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.clt{flex:1;}
+.clm{font-size:13px;font-weight:500;color:var(--ink);line-height:1.4;}
+.cls{font-size:11px;color:var(--ink3);margin-top:2px;}
+.rg{display:flex;gap:5px;flex-shrink:0;padding-top:2px;}
+.rb{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid var(--line);background:var(--white);color:var(--ink3);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all .15s;}
+.rb:hover{border-color:var(--teal);color:var(--teal);}
+.rb.yes{background:var(--green-l);border-color:var(--green);color:var(--green);}
+.rb.no{background:var(--red-l);border-color:var(--red);color:var(--red);}
+.rb.na{background:var(--bg);border-color:var(--ink3);color:var(--ink3);}
+
+/* ── Actions ── */
+.factions{display:flex;gap:10px;flex-wrap:wrap;padding:16px 0;}
+.btn-rst{padding:11px 22px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);background:var(--white);color:var(--ink3);font-family:'IBM Plex Sans',sans-serif;transition:all .15s;}
+.btn-rst:hover{border-color:var(--red);color:var(--red);}
+.btn-sav{padding:11px 28px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--teal);color:var(--white);font-family:'IBM Plex Sans',sans-serif;box-shadow:0 4px 14px rgba(0,137,123,.28);transition:all .15s;display:flex;align-items:center;gap:8px;}
+.btn-sav:hover{background:var(--teal-d);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,137,123,.38);}
+.btn-sav:active{transform:none;}
+
+/* ── Records ── */
+.rtoolbar{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg);}
+.rcnt{font-size:13px;font-weight:700;color:var(--ink);}
+.srch{border:1.5px solid var(--line);border-radius:8px;padding:7px 12px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);outline:none;background:var(--white);width:170px;transition:all .2s;}
+.srch:focus{border-color:var(--teal);width:210px;}
+.btn-del{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #ffcdd2;background:var(--white);color:var(--red);font-family:'IBM Plex Sans',sans-serif;transition:all .15s;}
+.btn-del:hover{background:var(--red-l);border-color:var(--red);}
+.tbtns{display:flex;gap:5px;}
+.tbtn{padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);background:var(--white);color:var(--ink3);font-family:'IBM Plex Sans',sans-serif;transition:all .15s;white-space:nowrap;}
+.tbtn:hover{border-color:var(--teal);color:var(--teal);}
+.tbtn.d:hover{border-color:var(--red);color:var(--red);background:var(--red-l);}
+
+/* ── Report page specifics ── */
+.rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+@media(max-width:600px){.rpt-grid{grid-template-columns:1fr;}}
+.insight{background:var(--white);border-radius:var(--r);border:1px solid var(--line);padding:18px;box-shadow:var(--sh1);}
+.insight h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:12px;}
+.insight-list{list-style:none;}
+.insight-list li{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;display:flex;align-items:flex-start;gap:8px;}
+.insight-list li:last-child{border-bottom:none;}
+.il-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.weak-item{background:var(--white);border-radius:8px;border-left:3px solid var(--kc,var(--red));padding:10px 14px;margin-bottom:8px;font-size:12.5px;}
+.weak-item .wi-top{font-weight:600;color:var(--ink);margin-bottom:3px;}
+.weak-item .wi-sub{font-size:11px;color:var(--ink3);}
+.trend-bar-wrap{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.trend-label{font-size:12px;width:110px;flex-shrink:0;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.trend-bar{flex:1;height:14px;background:var(--bg);border-radius:4px;overflow:hidden;}
+.trend-fill{height:100%;border-radius:4px;transition:width .5s ease;}
+.trend-val{font-family:var(--mono);font-size:11px;font-weight:500;width:32px;text-align:right;flex-shrink:0;}
+.shift-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.shift-box{background:var(--bg);border-radius:8px;padding:12px;text-align:center;border:1px solid var(--line);}
+.shift-box .sv{font-family:var(--mono);font-size:18px;font-weight:500;margin:4px 0;}
+.shift-box .sl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);}
+.rec-box{background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--teal);}
+.rec-box.warn{border-left-color:var(--amber);}
+.rec-box.bad{border-left-color:var(--red);}
+.rec-box .rt{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+.rec-box .rs{font-size:11.5px;color:var(--ink3);}
+.date-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.date-filter label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);}
+.date-filter input,.date-filter select{border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);outline:none;background:var(--white);}
+.date-filter input:focus,.date-filter select:focus{border-color:var(--teal);}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:20px;left:16px;right:16px;max-width:380px;margin:0 auto;background:var(--ink);color:var(--white);padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--sh3);transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.22,.68,0,1.2);z-index:999;display:flex;align-items:center;gap:8px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{background:var(--teal);}
+.toast.err{background:var(--red);}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:40px 20px;color:var(--ink3);}
+.empty-ico{font-size:38px;margin-bottom:10px;display:block;}
+.empty p{font-size:14px;}
+
+/* ── Spinner ── */
+.spin{width:13px;height:13px;border-radius:50%;border:2px solid rgba(0,137,123,.2);border-top-color:var(--teal);animation:spinr .7s linear infinite;display:inline-block;vertical-align:middle;}
+@keyframes spinr{to{transform:rotate(360deg);}}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
+
+/* ── Mobile ── */
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  .fgrid{grid-template-columns:1fr;}
+  .cli{flex-direction:column;gap:8px;}
+  .rg{justify-content:flex-start;}
+  .dt{font-size:12px;}
+  .dt th,.dt td{padding:8px 10px;}
+  .srch{width:130px;}
+  .srch:focus{width:160px;}
+  .rpt-grid{grid-template-columns:1fr;}
+  .shift-grid{grid-template-columns:repeat(3,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="hdr">
+  <div class="hdr-in">
+    <div class="hdr-ico">🧴</div>
+    <div class="hdr-txt">
+      <h1>Hand Hygiene Monitoring</h1>
+      <p>Kampong Chhnang Provincial Hospital · IPC Program</p>
+    </div>
+    <div class="hdr-right">
+      <div class="sync-chip" onclick="toggleGasPanel()" title="Cloud sync settings">
+        <div class="sync-dot" id="syncDot"></div>
+        <span class="sync-label" id="syncLabel">Sync</span>
+      </div>
+      <div class="hdr-date" id="todayBadge"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GAS PANEL ── -->
+<div class="gas-panel" id="gasPanel">
+  <div class="gas-inner">
+    <span class="gas-note">☁ Google Sheet URL:</span>
+    <input class="gas-url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/…/exec" oninput="onUrlChange()">
+    <button class="btn-pill" onclick="pingGas()">Test</button>
+    <button class="btn-pill" onclick="fullSync()">↕ Full Sync</button>
+    <span class="gas-note" id="gasNote"></span>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <div class="nav-in">
+    <button class="nb active" onclick="goTab('dashboard')">📊 Dashboard</button>
+    <button class="nb" onclick="goTab('assess')">📋 Assess</button>
+    <button class="nb" onclick="goTab('records')">🗂 Records</button>
+    <button class="nb" onclick="goTab('report')">📈 Report</button>
+  </div>
+</nav>
+
+<!-- ════════════ DASHBOARD ════════════ -->
+<div class="page active" id="page-dashboard">
+ <div class="wrap">
+  <div class="sh"><h2>Overview</h2><p>Live compliance — all departments, all devices</p></div>
+  <div class="exp-row">
+    <button class="btn-exp" onclick="fullSync()">☁ Sync Now</button>
+    <button class="btn-exp" onclick="exportExcel()">📊 Export Excel</button>
+    <button class="btn-exp" onclick="exportSummaryPDF()">📄 Summary PDF</button>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi" style="--kc:var(--teal)"><div class="kpi-lbl">Overall</div><div class="kpi-val" id="k-ov">—</div><div class="kpi-sub">All categories</div></div>
+    <div class="kpi" style="--kc:#0277bd"><div class="kpi-lbl">Sanitation</div><div class="kpi-val" id="k-san">—</div><div class="kpi-sub">Product & use</div></div>
+    <div class="kpi" style="--kc:#6a1b9a"><div class="kpi-lbl">5 Moments</div><div class="kpi-val" id="k-mom">—</div><div class="kpi-sub">WHO compliance</div></div>
+    <div class="kpi" style="--kc:#bf360c"><div class="kpi-lbl">6 Steps</div><div class="kpi-val" id="k-stp">—</div><div class="kpi-sub">Technique</div></div>
+    <div class="kpi" style="--kc:var(--ink3)"><div class="kpi-lbl">Assessments</div><div class="kpi-val" id="k-tot">0</div><div class="kpi-sub">Total recorded</div></div>
+  </div>
+  <div class="chart-row">
+    <div class="cc"><h4>By Category</h4><div class="cw"><canvas id="catChart"></canvas></div></div>
+    <div class="cc"><h4>Top Departments</h4><div class="cw"><canvas id="deptChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span>Department Summary</span></div>
+    <div class="sx"><table class="dt">
+      <thead><tr><th>Department</th><th>N</th><th>Sanitation</th><th>5 Moments</th><th>6 Steps</th><th>Overall</th><th>Status</th></tr></thead>
+      <tbody id="sumBody"><tr><td colspan="7"><div class="empty"><span class="empty-ico">📭</span><p>No data yet.</p></div></td></tr></tbody>
+    </table></div>
+  </div>
+ </div>
+</div>
+
+<!-- ════════════ ASSESS ════════════ -->
+<div class="page" id="page-assess">
+ <div class="wrap">
+  <div class="sh"><h2>New Assessment</h2><p>Record a hand hygiene observation — saves to cloud automatically</p></div>
+  <div class="fsec">
+    <div class="fsec-title"><span class="fsec-ico">🏥</span> Observation Details</div>
+    <div class="fgrid">
+      <div class="fld"><label>Department</label><select id="f-dept"><option value="">— Select —</option></select></div>
+      <div class="fld"><label>Observer Name</label><input type="text" id="f-obs" placeholder="Full name"></div>
+      <div class="fld"><label>Date</label><input type="date" id="f-date"></div>
+      <div class="fld"><label>Staff Role</label>
+        <select id="f-role">
+          <option value="">— Select —</option>
+          <option>Physician</option><option>Nurse</option><option>Midwife</option>
+          <option>Lab Technician</option><option>Nursing Student</option>
+          <option>Cleaner / Support Staff</option><option>Other</option>
+        </select>
+      </div>
+      <div class="fld"><label>Shift</label>
+        <select id="f-shift">
+          <option>Morning (07:00–13:00)</option>
+          <option>Afternoon (13:00–19:00)</option>
+          <option>Night (19:00–07:00)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="clc"><div class="clh">🧴 Category 1 — Hand Sanitation</div><div id="cl-san"></div></div>
+  <div class="clc"><div class="clh h2">🖐 Category 2 — Five Moments (WHO)</div><div id="cl-mom"></div></div>
+  <div class="clc"><div class="clh h3">🔢 Category 3 — Six Steps Technique</div><div id="cl-stp"></div></div>
+  <div class="factions">
+    <button class="btn-rst" onclick="resetForm()">↺ Reset</button>
+    <button class="btn-sav" onclick="submitAssessment()">💾 Save Assessment</button>
+  </div>
+ </div>
+</div>
+
+<!-- ════════════ RECORDS ════════════ -->
+<div class="page" id="page-records">
+ <div class="wrap">
+  <div class="sh"><h2>Records</h2><p>All entries from all devices — <strong>☁ Sync</strong> to refresh from cloud</p></div>
+  <div class="exp-row">
+    <button class="btn-exp" onclick="fullSync()">☁ Sync</button>
+    <button class="btn-exp" onclick="exportExcel()">📊 Excel</button>
+    <button class="btn-exp" onclick="exportSummaryPDF()">📄 Summary PDF</button>
+  </div>
+  <div class="card">
+    <div class="rtoolbar">
+      <span class="rcnt" id="rCount">0 records</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="srch" id="srch" placeholder="Search…" oninput="renderRecords()">
+        <button class="btn-del" onclick="clearAll()">🗑 Clear Local</button>
+      </div>
+    </div>
+    <div class="sx"><table class="dt">
+      <thead><tr><th>#</th><th>Date</th><th>Department</th><th>Observer</th><th>Role</th><th>Shift</th><th>San.</th><th>5 Mom.</th><th>6 Stp.</th><th>Overall</th><th>Actions</th></tr></thead>
+      <tbody id="recBody"><tr><td colspan="11"><div class="empty"><span class="empty-ico">🗂</span><p>No records.</p></div></td></tr></tbody>
+    </table></div>
+  </div>
+ </div>
+</div>
+
+<!-- ════════════ REPORT ════════════ -->
+<div class="page" id="page-report">
+ <div class="wrap">
+  <div class="sh"><h2>Comprehensive Report</h2><p>Aggregated analysis across departments, roles, shifts and time</p></div>
+
+  <!-- Filters -->
+  <div class="date-filter">
+    <label>From</label><input type="date" id="r-from">
+    <label>To</label><input type="date" id="r-to">
+    <label>Dept</label>
+    <select id="r-dept" onchange="renderReport()"><option value="">All Departments</option></select>
+    <label>Role</label>
+    <select id="r-role" onchange="renderReport()">
+      <option value="">All Roles</option>
+      <option>Physician</option><option>Nurse</option><option>Midwife</option>
+      <option>Lab Technician</option><option>Nursing Student</option><option>Cleaner / Support Staff</option>
+    </select>
+    <button class="btn-pill" onclick="renderReport()">Apply</button>
+    <button class="btn-pill" onclick="exportReportPDF()">📄 Full PDF Report</button>
+  </div>
+
+  <!-- Summary KPIs -->
+  <div class="kpi-grid" id="rpt-kpis" style="margin-bottom:20px"></div>
+
+  <!-- Charts row -->
+  <div class="chart-row">
+    <div class="cc"><h4>Compliance Trend (by month)</h4><div class="cw-tall"><canvas id="trendChart"></canvas></div></div>
+    <div class="cc"><h4>Score Distribution</h4><div class="cw-tall"><canvas id="distChart"></canvas></div></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="cc"><h4>By Role</h4><div class="cw"><canvas id="roleChart"></canvas></div></div>
+    <div class="cc"><h4>By Shift</h4><div class="cw"><canvas id="shiftChart"></canvas></div></div>
+  </div>
+
+  <!-- Item-level breakdown -->
+  <div class="rpt-grid">
+    <div class="insight">
+      <h4>Sanitation — Item Compliance</h4>
+      <div id="san-items"></div>
+    </div>
+    <div class="insight">
+      <h4>5 Moments — Item Compliance</h4>
+      <div id="mom-items"></div>
+    </div>
+  </div>
+  <div class="insight" style="margin-bottom:20px">
+    <h4>6 Steps — Item Compliance</h4>
+    <div id="stp-items" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0"></div>
+  </div>
+
+  <!-- Weakest items -->
+  <div class="rpt-grid">
+    <div class="insight">
+      <h4>⚠ Lowest Compliance Items</h4>
+      <div id="weakItems"></div>
+    </div>
+    <div class="insight">
+      <h4>🏆 Best Performing Departments</h4>
+      <div id="bestDepts"></div>
+    </div>
+  </div>
+
+  <!-- Dept breakdown table -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-head"><span>Full Department Breakdown</span></div>
+    <div class="sx"><table class="dt">
+      <thead><tr><th>Department</th><th>N</th><th>Sanitation</th><th>5 Moments</th><th>6 Steps</th><th>Overall</th><th>Trend</th><th>Status</th></tr></thead>
+      <tbody id="rptDeptBody"></tbody>
+    </table></div>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="card">
+    <div class="card-head"><span>📋 Recommendations</span></div>
+    <div style="padding:18px" id="recs"></div>
+  </div>
+ </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxt8T4lTGVr2xtPuq3NosWlobad_DS3iPk9H5aQSV1mcfcRCbNrVaaX8uooWpTjOMjD/exec';
+
+const DEPTS = [
+  'OPD','Emergency','NCD','Oral Health','Eye Unit',
+  'Dialysis','General Medicine','ICU','Operation Theater','Surgery A','Surgery B',
+  'Gynecology','Maternity','Laboratory','Pediatry','NICU'
+];
+const DCOL = [
+  '#00897b','#1565c0','#6a1b9a','#00695c','#0277bd',
+  '#2e7d32','#283593','#4527a0','#bf360c','#1b5e20','#d84315',
+  '#0d47a1','#4a148c','#006064','#e64a19','#00838f'
+];
+
+const CL = {
+  san:[
+    {id:'s1',t:'ABHR available at point of care',s:'Dispenser present and functional'},
+    {id:'s2',t:'Soap and clean water available at sink',s:'Hand-washing facility accessible'},
+    {id:'s3',t:'Single-use paper towels or clean cloth for drying',s:'No shared towel'},
+    {id:'s4',t:'Staff uses ABHR when hands not visibly soiled',s:'Correct product selected'},
+    {id:'s5',t:'Staff uses soap/water when hands visibly dirty or after spore exposure',s:'Correct indication followed'},
+    {id:'s6',t:'Sufficient volume used (2–3 mL ABHR; enough soap to lather)',s:'Adequate quantity observed'},
+    {id:'s7',t:'No rings, bracelets, or artificial nails during clinical care',s:'Bare below elbows policy'},
+  ],
+  mom:[
+    {id:'m1',t:'Moment 1 — Before touching a patient',s:'Hand hygiene before patient contact'},
+    {id:'m2',t:'Moment 2 — Before a clean/aseptic procedure',s:'Hand hygiene before aseptic task'},
+    {id:'m3',t:'Moment 3 — After body fluid exposure risk',s:'Hand hygiene after blood/fluid exposure'},
+    {id:'m4',t:'Moment 4 — After touching a patient',s:'Hand hygiene after patient contact'},
+    {id:'m5',t:'Moment 5 — After touching patient surroundings',s:'Hand hygiene after patient environment'},
+  ],
+  stp:[
+    {id:'t1',t:'Step 1 — Apply ABHR to palm (or wet hands)',s:'Adequate product applied'},
+    {id:'t2',t:'Step 2 — Rub palms together',s:'Palm-to-palm coverage'},
+    {id:'t3',t:'Step 3 — Right palm over left dorsum, fingers interlaced; vice versa',s:'Backs of hands covered'},
+    {id:'t4',t:'Step 4 — Palm to palm with fingers interlaced',s:'Between fingers covered'},
+    {id:'t5',t:'Step 5 — Backs of fingers to opposing palms, fingers interlocked',s:'Knuckles covered'},
+    {id:'t6',t:'Step 6 — Rotational rubbing of thumbs and fingertips',s:'Thumbs and fingertips covered'},
+    {id:'t7',t:'Duration ≥ 20 sec (ABHR) or 40–60 sec (soap/water)',s:'Adequate duration observed'},
+    {id:'t8',t:'Hands dried; tap closed with towel (soap/water only)',s:'Complete drying; correct tap-off'},
+  ]
+};
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let records  = JSON.parse(localStorage.getItem('hh_v3')||'[]');
+let answers  = {};
+let gasUrl   = localStorage.getItem('hh_gas_url') || GAS_URL;
+let lastSync = Number(localStorage.getItem('hh_lastSync')||0);
+let charts   = {};
+let gasPanelOpen = false;
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+function init() {
+  const now = new Date();
+  document.getElementById('todayBadge').textContent =
+    now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+  document.getElementById('gasUrlInput').value = gasUrl;
+
+  // Report date defaults: past 3 months
+  const d3m = new Date(now); d3m.setMonth(d3m.getMonth()-3);
+  document.getElementById('r-from').value = d3m.toISOString().split('T')[0];
+  document.getElementById('r-to').value   = now.toISOString().split('T')[0];
+  document.getElementById('r-from').onchange = renderReport;
+  document.getElementById('r-to').onchange   = renderReport;
+
+  // Dept dropdown (form + report filter)
+  const sel = document.getElementById('f-dept');
+  const rsel = document.getElementById('r-dept');
+  DEPTS.forEach(d=>{
+    let o = document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o);
+    let o2 = document.createElement('option'); o2.value=d; o2.textContent=d; rsel.appendChild(o2);
+  });
+
+  buildCL('san',CL.san); buildCL('mom',CL.mom); buildCL('stp',CL.stp);
+  renderAll();
+
+  // Auto-sync on load
+  setSyncStatus('spin','Connecting…');
+  setTimeout(()=>fullSync(true), 500);
+}
+
+function buildCL(cat, items) {
+  const el = document.getElementById(`cl-${cat}`);
+  items.forEach((item,i)=>{
+    const d=document.createElement('div'); d.className='cli';
+    d.innerHTML=`<div class="cln">${i+1}</div>
+      <div class="clt"><div class="clm">${item.t}</div><div class="cls">${item.s}</div></div>
+      <div class="rg">
+        <button class="rb" data-id="${item.id}" onclick="setA('${item.id}','yes',this)">YES</button>
+        <button class="rb" data-id="${item.id}" onclick="setA('${item.id}','no',this)">NO</button>
+        <button class="rb" data-id="${item.id}" onclick="setA('${item.id}','na',this)">N/A</button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+// ════════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════════
+const TABS = ['dashboard','assess','records','report'];
+function goTab(t) {
+  TABS.forEach(x=>{ document.getElementById(`page-${x}`).classList.toggle('active',x===t); });
+  document.querySelectorAll('.nb').forEach((b,i)=>b.classList.toggle('active',TABS[i]===t));
+  if(t==='dashboard') renderAll();
+  if(t==='records')   renderRecords();
+  if(t==='report')    renderReport();
+}
+
+function toggleGasPanel() {
+  gasPanelOpen = !gasPanelOpen;
+  document.getElementById('gasPanel').classList.toggle('open', gasPanelOpen);
+}
+
+// ════════════════════════════════════════════════
+// ASSESSMENT
+// ════════════════════════════════════════════════
+function setA(id, val, btn) {
+  answers[id]=val;
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(b=>b.className='rb');
+  btn.classList.add(val);
+}
+
+function score(ids) {
+  const rel=ids.filter(id=>answers[id]&&answers[id]!=='na');
+  return rel.length ? Math.round(rel.filter(id=>answers[id]==='yes').length/rel.length*100) : null;
+}
+
+async function submitAssessment() {
+  const dept=document.getElementById('f-dept').value;
+  const obs =document.getElementById('f-obs').value.trim();
+  const date=document.getElementById('f-date').value;
+  const role=document.getElementById('f-role').value;
+  const shift=document.getElementById('f-shift').value;
+  if(!dept||!obs||!date||!role){toast('Fill all required fields','err');return;}
+  const tot=Object.values(CL).flat().length;
+  if(Object.keys(answers).length < Math.ceil(tot*.5)){toast('Answer at least 50% of items','err');return;}
+
+  const san=score(CL.san.map(i=>i.id));
+  const mom=score(CL.mom.map(i=>i.id));
+  const stp=score(CL.stp.map(i=>i.id));
+  const all=[san,mom,stp].filter(x=>x!==null);
+  const ov = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : null;
+
+  const rec={id:Date.now(),dept,observer:obs,date,role,shift,answers:{...answers},scores:{san,mom,stp,overall:ov}};
+
+  // Optimistic: add locally first
+  mergeRecords([rec]);
+  saveLocal();
+  toast('Saved locally ✓','ok');
+  resetForm();
+  renderAll();
+
+  // Push to GAS
+  setSyncStatus('spin','Saving…');
+  try {
+    const p=new URLSearchParams({action:'save',payload:JSON.stringify(rec)});
+    const r=await fetch(`${gasUrl}?${p}`);
+    const j=await r.json();
+    if(j.ok){ setSyncStatus('ok','Synced'); toast('Saved to cloud ☁','ok'); }
+    else     { setSyncStatus('err','Save failed'); toast('Cloud save failed: '+j.error,'err'); }
+  } catch(e){ setSyncStatus('err','Offline'); toast('Saved locally (offline)','ok'); }
+}
+
+function resetForm() {
+  answers={};
+  document.querySelectorAll('.rb').forEach(b=>b.className='rb');
+  ['f-obs','f-role','f-dept'].forEach(id=>document.getElementById(id).value='');
+}
+
+// ════════════════════════════════════════════════
+// SYNC — CLOUD IS SOURCE OF TRUTH
+// ════════════════════════════════════════════════
+async function fullSync(silent=false) {
+  if(!gasUrl){ setSyncStatus('err','No URL'); return; }
+  setSyncStatus('spin','Syncing…');
+  if(!silent) toast('Syncing with cloud…');
+
+  try {
+    // 1. Push any local-only records to cloud first
+    const localIds = new Set(records.map(r=>String(r.id)));
+    // 2. Pull everything from cloud (source of truth)
+    const res = await fetch(`${gasUrl}?action=getAll`);
+    const j   = await res.json();
+    if(!j.ok) throw new Error(j.error||'getAll failed');
+
+    const cloudIds = new Set(j.records.map(r=>String(r.id)));
+
+    // 3. Push local records not yet in cloud
+    const toUpload = records.filter(r=>!cloudIds.has(String(r.id)));
+    if(toUpload.length > 0) {
+      const pp=new URLSearchParams({action:'syncBatch',payload:JSON.stringify(toUpload)});
+      await fetch(`${gasUrl}?${pp}`);
+    }
+
+    // 4. Merge cloud records into local (cloud wins on conflict)
+    mergeRecords(j.records);
+    saveLocal();
+    lastSync = Date.now();
+    localStorage.setItem('hh_lastSync', lastSync);
+
+    setSyncStatus('ok',`Synced · ${records.length} records`);
+    renderAll();
+    if(document.getElementById('page-records').classList.contains('active')) renderRecords();
+    if(document.getElementById('page-report').classList.contains('active'))  renderReport();
+    if(!silent) toast(`Synced — ${j.records.length} records from cloud ☁`,'ok');
+  } catch(e) {
+    setSyncStatus('err','Sync failed');
+    if(!silent) toast('Sync failed: '+e.message,'err');
+  }
+}
+
+// Merge array of records into local store — cloud record wins on same ID
+function mergeRecords(incoming) {
+  const map = {};
+  records.forEach(r=>{ map[String(r.id)]=r; });
+  incoming.forEach(r=>{ map[String(r.id)]=r; }); // incoming overwrites
+  records = Object.values(map).sort((a,b)=>Number(b.id)-Number(a.id));
+}
+
+async function deleteRecord(id) {
+  records = records.filter(r=>r.id!==id);
+  saveLocal(); renderAll(); renderRecords();
+  toast('Record deleted');
+  if(gasUrl) {
+    try {
+      const p=new URLSearchParams({action:'delete',id:String(id)});
+      await fetch(`${gasUrl}?${p}`);
+    } catch(e){}
+  }
+}
+
+function clearAll() {
+  if(!confirm('Clear all local records? (Cloud data is unaffected — sync to restore)')) return;
+  records=[]; saveLocal(); renderAll(); renderRecords();
+  toast('Local records cleared');
+}
+
+function saveLocal(){ localStorage.setItem('hh_v3',JSON.stringify(records)); }
+
+// ════════════════════════════════════════════════
+// GAS helpers
+// ════════════════════════════════════════════════
+function onUrlChange(){ gasUrl=document.getElementById('gasUrlInput').value.trim(); localStorage.setItem('hh_gas_url',gasUrl); setSyncStatus('','URL updated'); }
+
+function setSyncStatus(state, label) {
+  const dot=document.getElementById('syncDot'), lbl=document.getElementById('syncLabel'), note=document.getElementById('gasNote');
+  dot.className='sync-dot';
+  if(state==='ok')  { dot.classList.add('ok');   }
+  if(state==='err') { dot.classList.add('err');  }
+  if(state==='spin'){ dot.classList.add('spin'); }
+  lbl.textContent = label || 'Sync';
+  if(note) note.textContent = label||'';
+}
+
+async function pingGas() {
+  if(!gasUrl){toast('Paste GAS URL first','err');return;}
+  setSyncStatus('spin','Testing…');
+  try {
+    const r=await fetch(`${gasUrl}?action=ping`); const j=await r.json();
+    j.ok ? (setSyncStatus('ok','Connected ✓'), toast('Connection OK ✓','ok'))
+         : (setSyncStatus('err','Error'), toast('GAS error: '+j.error,'err'));
+  } catch(e){ setSyncStatus('err','Cannot reach'); toast('Cannot reach GAS','err'); }
+}
+
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+const avg    = a => a.length ? Math.round(a.reduce((x,y)=>x+y,0)/a.length) : null;
+const scCol  = v => v===null?'var(--ink3)':v>=75?'var(--green)':v>=50?'var(--amber)':'var(--red)';
+const scRGB  = v => v===null?[113,128,150]:v>=75?[46,125,50]:v>=50?[230,81,0]:[198,40,40];
+const bdg    = v => v===null?`<span class="bdg bdg-n">—</span>`:v>=75?`<span class="bdg bdg-g">✓ Good</span>`:v>=50?`<span class="bdg bdg-a">⚠ Needs Work</span>`:`<span class="bdg bdg-r">✗ Poor</span>`;
+
+function pbar(v) {
+  if(v===null) return `<span style="color:var(--ink3)">—</span>`;
+  return `<div class="pb-wrap"><span class="pv" style="color:${scCol(v)}">${v}%</span><div class="pb"><div class="pb-f" style="width:${v}%;background:${scCol(v)}"></div></div></div>`;
+}
+function fmtV(v) {
+  return v!==null&&v!==undefined ? `<span style="color:${scCol(v)};font-family:var(--mono);font-weight:600;font-size:12px">${v}%</span>` : `<span style="color:var(--ink3)">—</span>`;
+}
+
+function buildDD(recs) {
+  const dd={};
+  DEPTS.forEach(d=>{dd[d]={san:[],mom:[],stp:[],ov:[],count:0,recs:[]};});
+  recs.forEach(r=>{
+    if(!dd[r.dept])return; const d=dd[r.dept]; d.count++; d.recs.push(r);
+    if(r.scores.san!=null)d.san.push(r.scores.san);
+    if(r.scores.mom!=null)d.mom.push(r.scores.mom);
+    if(r.scores.stp!=null)d.stp.push(r.scores.stp);
+    if(r.scores.overall!=null)d.ov.push(r.scores.overall);
+  }); return dd;
+}
+
+function itemScore(recs, id) {
+  const rel = recs.filter(r=>r.answers&&r.answers[id]&&r.answers[id]!=='na');
+  if(!rel.length) return null;
+  return Math.round(rel.filter(r=>r.answers[id]==='yes').length/rel.length*100);
+}
+
+// ════════════════════════════════════════════════
+// RENDER DASHBOARD
+// ════════════════════════════════════════════════
+function renderAll() {
+  const dd=buildDD(records);
+  const allOv =records.filter(r=>r.scores.overall!=null).map(r=>r.scores.overall);
+  const allSan=records.filter(r=>r.scores.san!=null).map(r=>r.scores.san);
+  const allMom=records.filter(r=>r.scores.mom!=null).map(r=>r.scores.mom);
+  const allStp=records.filter(r=>r.scores.stp!=null).map(r=>r.scores.stp);
+
+  const sk=(id,a)=>{const v=avg(a);const el=document.getElementById(id);el.textContent=v!==null?`${v}%`:'—';el.style.color=scCol(v);};
+  sk('k-ov',allOv); sk('k-san',allSan); sk('k-mom',allMom); sk('k-stp',allStp);
+  document.getElementById('k-tot').textContent=records.length;
+
+  // Summary table
+  const tb=document.getElementById('sumBody'); tb.innerHTML=''; let any=false;
+  DEPTS.forEach((d,i)=>{
+    const x=dd[d]; if(!x.count)return; any=true;
+    const ov=avg(x.ov),sv=avg(x.san),mv=avg(x.mom),tv=avg(x.stp);
+    tb.innerHTML+=`<tr><td><span class="dd" style="background:${DCOL[i]}"></span><strong>${d}</strong></td><td style="font-family:var(--mono);font-size:12px;color:var(--ink3)">${x.count}</td><td>${pbar(sv)}</td><td>${pbar(mv)}</td><td>${pbar(tv)}</td><td>${pbar(ov)}</td><td>${bdg(ov)}</td></tr>`;
+  });
+  if(!any) tb.innerHTML=`<tr><td colspan="7"><div class="empty"><span class="empty-ico">📭</span><p>No data yet — sync or add an assessment.</p></div></td></tr>`;
+
+  // Category doughnut
+  const cC=document.getElementById('catChart').getContext('2d');
+  if(charts.cat)charts.cat.destroy();
+  charts.cat=new Chart(cC,{type:'doughnut',data:{labels:['Sanitation','5 Moments','6 Steps'],datasets:[{data:[avg(allSan)??0,avg(allMom)??0,avg(allStp)??0],backgroundColor:['#00897b','#6a1b9a','#bf360c'],borderColor:'#fff',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#4a5568',font:{size:11},padding:12,boxWidth:12}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}%`}}}}});
+
+  // Dept bar
+  const dC=document.getElementById('deptChart').getContext('2d');
+  if(charts.dept)charts.dept.destroy();
+  const sorted=DEPTS.map((d,i)=>({d,v:avg(dd[d].ov)??0,c:DCOL[i]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,8);
+  charts.dept=new Chart(dC,{type:'bar',data:{labels:sorted.map(x=>x.d),datasets:[{data:sorted.map(x=>x.v),backgroundColor:sorted.map(x=>x.c+'22'),borderColor:sorted.map(x=>x.c),borderWidth:2,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x}%`}}},scales:{x:{min:0,max:100,ticks:{color:'#718096',callback:v=>v+'%',font:{size:10}},grid:{color:'#e2e8f0'},border:{color:'transparent'}},y:{ticks:{color:'#1a202c',font:{size:10}},grid:{display:false},border:{color:'transparent'}}}}});
+}
+
+// ════════════════════════════════════════════════
+// RENDER RECORDS
+// ════════════════════════════════════════════════
+function renderRecords() {
+  const q=(document.getElementById('srch')?.value||'').toLowerCase();
+  const f=records.filter(r=>r.dept.toLowerCase().includes(q)||(r.observer||'').toLowerCase().includes(q));
+  document.getElementById('rCount').textContent=`${f.length} record${f.length!==1?'s':''}`;
+  const tb=document.getElementById('recBody');
+  if(!f.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty"><span class="empty-ico">🗂</span><p>No records. Tap ☁ Sync to load from cloud.</p></div></td></tr>`;return;}
+  tb.innerHTML=f.map((r,i)=>`<tr>
+    <td style="color:var(--ink3);font-family:var(--mono);font-size:11px">${f.length-i}</td>
+    <td style="font-family:var(--mono);font-size:11px;white-space:nowrap">${r.date}</td>
+    <td><strong>${r.dept}</strong></td>
+    <td style="font-size:12px">${r.observer||''}</td>
+    <td style="color:var(--ink3);font-size:11px">${(r.role||'').split('/')[0].trim()}</td>
+    <td style="color:var(--ink3);font-size:11px">${(r.shift||'').split(' ')[0]}</td>
+    <td>${fmtV(r.scores.san)}</td><td>${fmtV(r.scores.mom)}</td><td>${fmtV(r.scores.stp)}</td><td>${fmtV(r.scores.overall)}</td>
+    <td><div class="tbtns">
+      <button class="tbtn" onclick="exportRecordPDF(${r.id})">📄</button>
+      <button class="tbtn d" onclick="deleteRecord(${r.id})">🗑</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════
+// RENDER REPORT
+// ════════════════════════════════════════════════
+function renderReport() {
+  const from = document.getElementById('r-from').value;
+  const to   = document.getElementById('r-to').value;
+  const dFlt = document.getElementById('r-dept').value;
+  const rFlt = document.getElementById('r-role').value;
+
+  let recs = records.filter(r=>{
+    if(from && r.date < from) return false;
+    if(to   && r.date > to)   return false;
+    if(dFlt && r.dept !== dFlt) return false;
+    if(rFlt && r.role !== rFlt) return false;
+    return true;
+  });
+
+  if(!recs.length) {
+    document.getElementById('rpt-kpis').innerHTML='<div class="empty" style="grid-column:1/-1"><span class="empty-ico">📊</span><p>No data in selected range.</p></div>';
+    ['trendChart','distChart','roleChart','shiftChart'].forEach(id=>{if(charts[id])charts[id].destroy();});
+    ['san-items','mom-items','stp-items','weakItems','bestDepts','rptDeptBody','recs'].forEach(id=>document.getElementById(id).innerHTML='');
+    return;
+  }
+
+  const allOv =recs.filter(r=>r.scores.overall!=null).map(r=>r.scores.overall);
+  const allSan=recs.filter(r=>r.scores.san!=null).map(r=>r.scores.san);
+  const allMom=recs.filter(r=>r.scores.mom!=null).map(r=>r.scores.mom);
+  const allStp=recs.filter(r=>r.scores.stp!=null).map(r=>r.scores.stp);
+
+  // KPI strip
+  const kpis=[
+    {l:'Overall',v:avg(allOv),c:'var(--teal)'},{l:'Sanitation',v:avg(allSan),c:'#0277bd'},
+    {l:'5 Moments',v:avg(allMom),c:'#6a1b9a'},{l:'6 Steps',v:avg(allStp),c:'#bf360c'},
+    {l:'Records',v:recs.length,raw:true,c:'var(--ink3)'}
+  ];
+  document.getElementById('rpt-kpis').innerHTML=kpis.map(k=>`
+    <div class="kpi" style="--kc:${k.c}">
+      <div class="kpi-lbl">${k.l}</div>
+      <div class="kpi-val" style="color:${k.raw?k.c:scCol(k.v)}">${k.v!==null?k.v+(k.raw?'':'%'):'—'}</div>
+      <div class="kpi-sub">${from} → ${to}</div>
+    </div>`).join('');
+
+  // Trend chart (monthly)
+  const months={};
+  recs.forEach(r=>{
+    if(!r.date||r.scores.overall===null)return;
+    const m=r.date.substring(0,7);
+    if(!months[m])months[m]=[];
+    months[m].push(r.scores.overall);
+  });
+  const mKeys=Object.keys(months).sort();
+  const tC=document.getElementById('trendChart').getContext('2d');
+  if(charts.trend)charts.trend.destroy();
+  charts.trend=new Chart(tC,{type:'line',data:{labels:mKeys,datasets:[
+    {label:'Overall',data:mKeys.map(m=>avg(months[m])),borderColor:'#00897b',backgroundColor:'rgba(0,137,123,.08)',tension:.3,pointRadius:4,pointBackgroundColor:'#00897b',fill:true,borderWidth:2},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}%`}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#718096',font:{size:10}},grid:{color:'#e2e8f0'},border:{color:'transparent'}},x:{ticks:{color:'#718096',font:{size:10},maxRotation:45},grid:{display:false},border:{color:'transparent'}}}}});
+
+  // Distribution
+  const bins=[0,0,0,0,0]; // <40,40-59,60-74,75-89,90-100
+  allOv.forEach(v=>{ if(v<40)bins[0]++;else if(v<60)bins[1]++;else if(v<75)bins[2]++;else if(v<90)bins[3]++;else bins[4]++; });
+  const dC=document.getElementById('distChart').getContext('2d');
+  if(charts.dist)charts.dist.destroy();
+  charts.dist=new Chart(dC,{type:'bar',data:{labels:['<40%','40–59%','60–74%','75–89%','90–100%'],datasets:[{data:bins,backgroundColor:['#ffcdd2','#ffe0b2','#fff9c4','#c8e6c9','#a5d6a7'],borderColor:['#c62828','#e65100','#f9a825','#2e7d32','#1b5e20'],borderWidth:1.5,borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y} assessments`}}},scales:{y:{ticks:{color:'#718096',font:{size:10}},grid:{color:'#e2e8f0'},border:{color:'transparent'}},x:{ticks:{color:'#1a202c',font:{size:10}},grid:{display:false},border:{color:'transparent'}}}}});
+
+  // Role chart
+  const roles={};
+  recs.forEach(r=>{ if(!r.role||r.scores.overall===null)return; if(!roles[r.role])roles[r.role]=[]; roles[r.role].push(r.scores.overall); });
+  const rKeys=Object.keys(roles).sort((a,b)=>(avg(roles[b])||0)-(avg(roles[a])||0));
+  const rC=document.getElementById('roleChart').getContext('2d');
+  if(charts.role)charts.role.destroy();
+  charts.role=new Chart(rC,{type:'bar',data:{labels:rKeys,datasets:[{data:rKeys.map(k=>avg(roles[k])),backgroundColor:rKeys.map((_,i)=>['#b2dfdb','#bbdefb','#e1bee7','#ffe0b2','#ffcdd2','#c8e6c9','#f8bbd0'][i%7]),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y}%`}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#718096',font:{size:10}},grid:{color:'#e2e8f0'},border:{color:'transparent'}},x:{ticks:{color:'#1a202c',font:{size:10},maxRotation:30},grid:{display:false},border:{color:'transparent'}}}}});
+
+  // Shift chart
+  const shifts={'Morning':[],'Afternoon':[],'Night':[]};
+  recs.forEach(r=>{ if(r.scores.overall===null)return; const k=Object.keys(shifts).find(s=>r.shift&&r.shift.startsWith(s)); if(k)shifts[k].push(r.scores.overall); });
+  const sC=document.getElementById('shiftChart').getContext('2d');
+  if(charts.shift)charts.shift.destroy();
+  charts.shift=new Chart(sC,{type:'polarArea',data:{labels:['Morning','Afternoon','Night'],datasets:[{data:[avg(shifts.Morning)||0,avg(shifts.Afternoon)||0,avg(shifts.Night)||0],backgroundColor:['rgba(0,137,123,.55)','rgba(106,27,154,.5)','rgba(21,101,192,.5)'],borderColor:['#00897b','#6a1b9a','#1565c0'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{ticks:{backdropColor:'transparent',color:'#718096',font:{size:10}},grid:{color:'#e2e8f0'}}},plugins:{legend:{position:'bottom',labels:{color:'#4a5568',font:{size:11},padding:12,boxWidth:12}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.r}%`}}}}});
+
+  // Item-level compliance
+  function renderItems(items, containerId) {
+    const el=document.getElementById(containerId); el.innerHTML='';
+    items.forEach(item=>{
+      const v=itemScore(recs,item.id);
+      el.innerHTML+=`<div class="trend-bar-wrap">
+        <span class="trend-label" title="${item.t}">${item.id.toUpperCase()}: ${item.t.substring(0,38)}${item.t.length>38?'…':''}</span>
+        <div class="trend-bar"><div class="trend-fill" style="width:${v??0}%;background:${scCol(v)}"></div></div>
+        <span class="trend-val" style="color:${scCol(v)}">${v!==null?v+'%':'—'}</span>
+      </div>`;
+    });
+  }
+  renderItems(CL.san,'san-items');
+  renderItems(CL.mom,'mom-items');
+  renderItems(CL.stp,'stp-items');
+
+  // Weakest items
+  const allItems=[...CL.san,...CL.mom,...CL.stp];
+  const scored=allItems.map(item=>({...item,v:itemScore(recs,item.id)})).filter(x=>x.v!==null).sort((a,b)=>a.v-b.v);
+  const weakEl=document.getElementById('weakItems'); weakEl.innerHTML='';
+  scored.slice(0,5).forEach(item=>{
+    const kc=item.v>=75?'var(--teal)':item.v>=50?'var(--amber)':'var(--red)';
+    weakEl.innerHTML+=`<div class="weak-item" style="--kc:${kc}"><div class="wi-top">${item.id.toUpperCase()}: ${item.t}</div><div class="wi-sub">Compliance: <strong style="color:${kc}">${item.v}%</strong></div></div>`;
+  });
+  if(!scored.length) weakEl.innerHTML='<p style="color:var(--ink3);font-size:13px">Not enough data.</p>';
+
+  // Best departments
+  const dd=buildDD(recs);
+  const deptScores=DEPTS.map(d=>({d,v:avg(dd[d].ov),n:dd[d].count})).filter(x=>x.v!==null&&x.n>=2).sort((a,b)=>b.v-a.v);
+  const bestEl=document.getElementById('bestDepts'); bestEl.innerHTML='';
+  deptScores.slice(0,5).forEach((x,i)=>{
+    bestEl.innerHTML+=`<div class="trend-bar-wrap">
+      <span class="trend-label" style="font-weight:600">${['🥇','🥈','🥉','4.','5.'][i]} ${x.d}</span>
+      <div class="trend-bar"><div class="trend-fill" style="width:${x.v}%;background:${scCol(x.v)}"></div></div>
+      <span class="trend-val" style="color:${scCol(x.v)}">${x.v}%</span>
+    </div>`;
+  });
+  if(!deptScores.length) bestEl.innerHTML='<p style="color:var(--ink3);font-size:13px">Need ≥ 2 records per dept.</p>';
+
+  // Full dept breakdown table
+  const rtb=document.getElementById('rptDeptBody'); rtb.innerHTML=''; let anyD=false;
+  DEPTS.forEach((d,i)=>{
+    const x=dd[d]; if(!x.count)return; anyD=true;
+    const ov=avg(x.ov),sv=avg(x.san),mv=avg(x.mom),tv=avg(x.stp);
+    // Simple trend: compare first half vs second half of records
+    let trend='—';
+    if(x.recs.length>=4){
+      const sorted=x.recs.filter(r=>r.scores.overall!=null).sort((a,b)=>a.date.localeCompare(b.date));
+      const half=Math.floor(sorted.length/2);
+      const t1=avg(sorted.slice(0,half).map(r=>r.scores.overall));
+      const t2=avg(sorted.slice(half).map(r=>r.scores.overall));
+      if(t1!==null&&t2!==null){const d=t2-t1;trend=d>0?`<span style="color:var(--green)">↑ +${d}%</span>`:d<0?`<span style="color:var(--red)">↓ ${d}%</span>`:`<span style="color:var(--ink3)">→ 0%</span>`;}
+    }
+    rtb.innerHTML+=`<tr><td><span class="dd" style="background:${DCOL[i]}"></span><strong>${d}</strong></td><td style="font-family:var(--mono);font-size:12px;color:var(--ink3)">${x.count}</td><td>${pbar(sv)}</td><td>${pbar(mv)}</td><td>${pbar(tv)}</td><td>${pbar(ov)}</td><td>${trend}</td><td>${bdg(ov)}</td></tr>`;
+  });
+  if(!anyD) rtb.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:24px">No data in range.</td></tr>`;
+
+  // Recommendations
+  const ov=avg(allOv);
+  const recs_el=document.getElementById('recs'); recs_el.innerHTML='';
+  const addRec=(cls,title,body)=>{ recs_el.innerHTML+=`<div class="rec-box ${cls}"><div class="rt">${title}</div><div class="rs">${body}</div></div>`; };
+
+  if(ov!==null&&ov<75) addRec('bad','🚨 Overall compliance below target (75%)',`Current overall: ${ov}%. Intensify IPC supervision, consider mandatory refresher training for all clinical staff.`);
+  else if(ov!==null) addRec('','✅ Overall compliance meets target',`Current overall: ${ov}%. Maintain performance with regular monitoring cycles.`);
+
+  const sanAvg=avg(allSan); const momAvg=avg(allMom); const stpAvg=avg(allStp);
+  if(sanAvg!==null&&sanAvg<75) addRec('bad','🧴 Hand Sanitation below target',`Score: ${sanAvg}%. Check ABHR dispenser availability and replenishment at all points of care. Enforce bare-below-elbows policy.`);
+  if(momAvg!==null&&momAvg<75) addRec('warn','🖐 5 Moments compliance needs improvement',`Score: ${momAvg}%. Run WHO My 5 Moments educational sessions. Post visual cues at bedside.`);
+  if(stpAvg!==null&&stpAvg<75) addRec('warn','🔢 Technique (6 Steps) needs improvement',`Score: ${stpAvg}%. Conduct hands-on return-demonstration sessions. Place hand hygiene posters at sinks.`);
+
+  const poorDepts=DEPTS.filter(d=>{ const v=avg(dd[d].ov); return v!==null&&v<50&&dd[d].count>=2; });
+  if(poorDepts.length) addRec('bad','⚠ Departments with poor compliance (<50%)',`${poorDepts.join(', ')}. Prioritize these departments for immediate targeted intervention, increased observation frequency, and leadership engagement.`);
+
+  const nightOv=avg(shifts.Night);
+  if(nightOv!==null&&nightOv<70) addRec('warn','🌙 Night shift compliance lower than daytime',`Night shift: ${nightOv}%. Increase supervisory presence during night shifts and ensure ABHR stocks are checked at shift handover.`);
+
+  // Weakest items recommendation
+  if(scored.length&&scored[0].v<60) addRec('warn','📋 Critical checklist item: '+scored[0].id.toUpperCase(),`"${scored[0].t}" — only ${scored[0].v}% compliance. Target this specific behavior in next training session.`);
+
+  if(!recs_el.innerHTML) recs_el.innerHTML='<p style="color:var(--ink3);font-size:13px">No recommendations — keep up the good work!</p>';
+}
+
+// ════════════════════════════════════════════════
+// EXPORT EXCEL
+// ════════════════════════════════════════════════
+function exportExcel() {
+  if(!records.length){toast('No records','err');return;}
+  const wb=XLSX.utils.book_new(), dd=buildDD(records);
+  const s1=[['Department','N','Sanitation (%)','5 Moments (%)','6 Steps (%)','Overall (%)','Status']];
+  DEPTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.ov);s1.push([d,x.count,avg(x.san)??'',avg(x.mom)??'',avg(x.stp)??'',ov??'',ov===null?'—':ov>=75?'Good':ov>=50?'Needs Work':'Poor']);});
+  const ws1=XLSX.utils.aoa_to_sheet(s1);ws1['!cols']=[{wch:22},{wch:6},{wch:16},{wch:16},{wch:14},{wch:12},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Summary');
+  const s2=[['ID','Date','Department','Observer','Role','Shift','Sanitation','5 Moments','6 Steps','Overall','S1','S2','S3','S4','S5','S6','S7','M1','M2','M3','M4','M5','T1','T2','T3','T4','T5','T6','T7','T8']];
+  records.forEach(r=>{const a=r.answers||{};s2.push([r.id,r.date,r.dept,r.observer,r.role,r.shift,r.scores.san??'',r.scores.mom??'',r.scores.stp??'',r.scores.overall??'',a.s1||'',a.s2||'',a.s3||'',a.s4||'',a.s5||'',a.s6||'',a.s7||'',a.m1||'',a.m2||'',a.m3||'',a.m4||'',a.m5||'',a.t1||'',a.t2||'',a.t3||'',a.t4||'',a.t5||'',a.t6||'',a.t7||'',a.t8||'']);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'All Records');
+  XLSX.writeFile(wb,`KCPH_HandHygiene_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('Excel exported ✓','ok');
+}
+
+// ════════════════════════════════════════════════
+// EXPORT SUMMARY PDF
+// ════════════════════════════════════════════════
+function exportSummaryPDF() {
+  if(!records.length){toast('No records','err');return;}
+  const{jsPDF}=window.jspdf, doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const dt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}), dd=buildDD(records);
+  const allOv=records.filter(r=>r.scores.overall!=null).map(r=>r.scores.overall);
+  const allSan=records.filter(r=>r.scores.san!=null).map(r=>r.scores.san);
+  const allMom=records.filter(r=>r.scores.mom!=null).map(r=>r.scores.mom);
+  const allStp=records.filter(r=>r.scores.stp!=null).map(r=>r.scores.stp);
+
+  doc.setFillColor(0,137,123);doc.rect(0,0,297,28,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(15);doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Monitoring — Summary Report',14,12);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(200,240,238);
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,20);
+  doc.text(`Generated: ${dt}  |  Total: ${records.length} assessments`,14,26);
+
+  const kpis=[{l:'Overall',v:avg(allOv)},{l:'Sanitation',v:avg(allSan)},{l:'5 Moments',v:avg(allMom)},{l:'6 Steps',v:avg(allStp)},{l:'Assessments',v:records.length,raw:true}];
+  let kx=14;
+  kpis.forEach(k=>{
+    doc.setFillColor(240,244,248);doc.roundedRect(kx,32,52,18,2,2,'F');
+    doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text(k.l.toUpperCase(),kx+3,38);
+    const c=k.raw?[26,32,44]:scRGB(k.v);doc.setTextColor(...c);doc.setFontSize(13);doc.setFont('helvetica','bold');
+    doc.text(k.v!==null?`${k.v}${k.raw?'':'%'}`:'—',kx+3,48);kx+=55;
+  });
+
+  const rows=[];
+  DEPTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.ov);rows.push([d,x.count,avg(x.san)!=null?`${avg(x.san)}%`:'—',avg(x.mom)!=null?`${avg(x.mom)}%`:'—',avg(x.stp)!=null?`${avg(x.stp)}%`:'—',ov!=null?`${ov}%`:'—',ov===null?'—':ov>=75?'Good':ov>=50?'Needs Work':'Poor']);});
+
+  doc.autoTable({head:[['Department','N','Sanitation','5 Moments','6 Steps','Overall','Status']],body:rows,startY:54,styles:{fontSize:9,cellPadding:3},headStyles:{fillColor:[0,137,123],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,248]},bodyStyles:{textColor:[26,32,44]},
+    didParseCell:d=>{
+      if(d.column.index===6&&d.section==='body'){const t=d.cell.raw;d.cell.styles.textColor=t==='Good'?[46,125,50]:t==='Needs Work'?[230,81,0]:t==='Poor'?[198,40,40]:[113,128,150];d.cell.styles.fontStyle='bold';}
+      if(d.column.index>=2&&d.column.index<=5&&d.section==='body'){const v=parseInt(d.cell.raw);if(!isNaN(v))d.cell.styles.textColor=scRGB(v);}
+    }
+  });
+  const pg=doc.getNumberOfPages();
+  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text(`KCPH IPC · Confidential | Page ${p}/${pg}`,14,205);doc.text(`${dt}`,255,205);}
+  doc.save(`KCPH_HH_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('Summary PDF exported ✓','ok');
+}
+
+// ════════════════════════════════════════════════
+// EXPORT FULL REPORT PDF
+// ════════════════════════════════════════════════
+function exportReportPDF() {
+  const from=document.getElementById('r-from').value, to=document.getElementById('r-to').value;
+  const dFlt=document.getElementById('r-dept').value, rFlt=document.getElementById('r-role').value;
+  let recsAll=records.filter(r=>{ if(from&&r.date<from)return false; if(to&&r.date>to)return false; if(dFlt&&r.dept!==dFlt)return false; if(rFlt&&r.role!==rFlt)return false; return true; });
+  if(!recsAll.length){toast('No data in selected range','err');return;}
+
+  // ── Exclude wards with fewer than 15 records this period ──
+  const MIN_RECORDS = 10;
+  const deptCounts = {};
+  recsAll.forEach(r => { deptCounts[r.dept] = (deptCounts[r.dept]||0) + 1; });
+  const excludedDepts = Object.keys(deptCounts).filter(d => deptCounts[d] < MIN_RECORDS).sort();
+  const includedDepts = new Set(Object.keys(deptCounts).filter(d => deptCounts[d] >= MIN_RECORDS));
+  // recs = only records from wards that meet the threshold (drives charts, KPIs, tables, recs)
+  let recs = recsAll.filter(r => includedDepts.has(r.dept));
+  if(!recs.length){toast(`No ward has ≥ ${MIN_RECORDS} records in this period — nothing to report`,'err');return;}
+
+  // ── Build charts from INCLUDED-ward records into offscreen canvases ──
+  // (on-screen charts show all wards; the PDF must reflect the 15-record threshold)
+  function offscreenChart(cfg, w, h) {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    cv.style.position='fixed'; cv.style.left='-9999px'; cv.style.top='0';
+    document.body.appendChild(cv);
+    const ch = new Chart(cv.getContext('2d'), cfg);
+    const img = cv.toDataURL('image/png', 1.0);
+    ch.destroy(); cv.remove();
+    return img;
+  }
+
+  // Aggregate helpers on included recs
+  const monthsMap={};
+  recs.forEach(r=>{ if(!r.date||r.scores.overall===null)return; const m=r.date.substring(0,7); (monthsMap[m]=monthsMap[m]||[]).push(r.scores.overall); });
+  const mKeys=Object.keys(monthsMap).sort();
+
+  const binsArr=[0,0,0,0,0];
+  recs.filter(r=>r.scores.overall!=null).map(r=>r.scores.overall).forEach(v=>{ if(v<40)binsArr[0]++;else if(v<60)binsArr[1]++;else if(v<75)binsArr[2]++;else if(v<90)binsArr[3]++;else binsArr[4]++; });
+
+  const rolesMap={};
+  recs.forEach(r=>{ if(!r.role||r.scores.overall===null)return; (rolesMap[r.role]=rolesMap[r.role]||[]).push(r.scores.overall); });
+  const rKeys=Object.keys(rolesMap).sort((a,b)=>(avg(rolesMap[b])||0)-(avg(rolesMap[a])||0));
+
+  const shiftsMap={'Morning':[],'Afternoon':[],'Night':[]};
+  recs.forEach(r=>{ if(r.scores.overall===null)return; const k=Object.keys(shiftsMap).find(s=>r.shift&&r.shift.startsWith(s)); if(k)shiftsMap[k].push(r.scores.overall); });
+
+  const noAnim={animation:false,responsive:false,maintainAspectRatio:false,plugins:{legend:{display:false}}};
+
+  const imgTrend = offscreenChart({ type:'line',
+    data:{labels:mKeys,datasets:[{label:'Overall',data:mKeys.map(m=>avg(monthsMap[m])),borderColor:'#00897b',backgroundColor:'rgba(0,137,123,.08)',tension:.3,pointRadius:4,pointBackgroundColor:'#00897b',fill:true,borderWidth:2}]},
+    options:{...noAnim,scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#718096',font:{size:11}},grid:{color:'#e2e8f0'}},x:{ticks:{color:'#718096',font:{size:11}},grid:{display:false}}}}
+  }, 520, 340);
+
+  const imgDist = offscreenChart({ type:'bar',
+    data:{labels:['<40%','40-59%','60-74%','75-89%','90-100%'],datasets:[{data:binsArr,backgroundColor:['#ffcdd2','#ffe0b2','#fff9c4','#c8e6c9','#a5d6a7'],borderColor:['#c62828','#e65100','#f9a825','#2e7d32','#1b5e20'],borderWidth:1.5,borderRadius:5}]},
+    options:{...noAnim,scales:{y:{ticks:{color:'#718096',font:{size:11}},grid:{color:'#e2e8f0'}},x:{ticks:{color:'#1a202c',font:{size:11}},grid:{display:false}}}}
+  }, 520, 340);
+
+  const imgRole = offscreenChart({ type:'bar',
+    data:{labels:rKeys,datasets:[{data:rKeys.map(k=>avg(rolesMap[k])),backgroundColor:rKeys.map((_,i)=>['#b2dfdb','#bbdefb','#e1bee7','#ffe0b2','#ffcdd2','#c8e6c9','#f8bbd0'][i%7]),borderRadius:6}]},
+    options:{...noAnim,scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#718096',font:{size:11}},grid:{color:'#e2e8f0'}},x:{ticks:{color:'#1a202c',font:{size:10}},grid:{display:false}}}}
+  }, 520, 340);
+
+  const imgShift = offscreenChart({ type:'polarArea',
+    data:{labels:['Morning','Afternoon','Night'],datasets:[{data:[avg(shiftsMap.Morning)||0,avg(shiftsMap.Afternoon)||0,avg(shiftsMap.Night)||0],backgroundColor:['rgba(0,137,123,.55)','rgba(106,27,154,.5)','rgba(21,101,192,.5)'],borderColor:['#00897b','#6a1b9a','#1565c0'],borderWidth:2}]},
+    options:{...noAnim,plugins:{legend:{display:true,position:'bottom',labels:{color:'#4a5568',font:{size:11},padding:12,boxWidth:12}}},scales:{r:{ticks:{backdropColor:'transparent',color:'#718096',font:{size:10}},grid:{color:'#e2e8f0'}}}}
+  }, 400, 360);
+
+  const{jsPDF}=window.jspdf, doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const dt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const dd=buildDD(recs);
+  const allOv=recs.filter(r=>r.scores.overall!=null).map(r=>r.scores.overall);
+  const allSan=recs.filter(r=>r.scores.san!=null).map(r=>r.scores.san);
+  const allMom=recs.filter(r=>r.scores.mom!=null).map(r=>r.scores.mom);
+  const allStp=recs.filter(r=>r.scores.stp!=null).map(r=>r.scores.stp);
+
+  // ── PAGE 1: Cover + KPIs + Dept table ──
+  doc.setFillColor(0,137,123);doc.rect(0,0,210,60,'F');
+  doc.setFillColor(0,105,92);doc.rect(0,48,210,12,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(20);doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene',14,22);doc.text('Comprehensive Report',14,32);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(200,240,238);
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,42);
+  doc.setFontSize(8);doc.setTextColor(255,255,255);
+  doc.text(`Period: ${from} to ${to}  |  Generated: ${dt}  |  N = ${recs.length} assessments`,14,52);
+  doc.setFontSize(7);doc.setTextColor(200,240,238);
+  doc.text(`Wards included: ${includedDepts.size}  ·  Excluded (< ${MIN_RECORDS} records): ${excludedDepts.length}`,14,57.5);
+
+  // KPI boxes
+  const kps=[{l:'Overall %',v:avg(allOv)},{l:'Sanitation %',v:avg(allSan)},{l:'5 Moments %',v:avg(allMom)},{l:'6 Steps %',v:avg(allStp)}];
+  let bx=14;
+  kps.forEach(k=>{
+    doc.setFillColor(240,244,248);doc.roundedRect(bx,66,42,20,2,2,'F');
+    const c=scRGB(k.v);doc.setDrawColor(...c);doc.setLineWidth(.5);doc.roundedRect(bx,66,42,20,2,2,'S');
+    doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text(k.l.toUpperCase(),bx+3,73);
+    doc.setFontSize(13);doc.setTextColor(...c);doc.setFont('helvetica','bold');doc.text(k.v!==null?`${k.v}%`:'—',bx+3,83);
+    bx+=46;
+  });
+
+  // Dept table
+  const drows=[];
+  DEPTS.forEach(d=>{const x=dd[d];if(!x.count)return;const ov=avg(x.ov);drows.push([d,x.count,avg(x.san)!=null?avg(x.san)+'%':'—',avg(x.mom)!=null?avg(x.mom)+'%':'—',avg(x.stp)!=null?avg(x.stp)+'%':'—',ov!=null?ov+'%':'—',ov===null?'—':ov>=75?'Good':ov>=50?'Needs Work':'Poor']);});
+
+  doc.autoTable({head:[['Department','N','Sanitation','5 Moments','6 Steps','Overall','Status']],body:drows,startY:92,styles:{fontSize:8.5,cellPadding:2.5},headStyles:{fillColor:[0,137,123],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,248]},bodyStyles:{textColor:[26,32,44]},
+    didParseCell:d=>{
+      if(d.column.index===6&&d.section==='body'){const t=d.cell.raw;d.cell.styles.textColor=t==='Good'?[46,125,50]:t==='Needs Work'?[230,81,0]:t==='Poor'?[198,40,40]:[113,128,150];d.cell.styles.fontStyle='bold';}
+      if(d.column.index>=2&&d.column.index<=5&&d.section==='body'){const v=parseInt(d.cell.raw);if(!isNaN(v))d.cell.styles.textColor=scRGB(v);}
+    }
+  });
+
+  // ── Excluded wards (insufficient data) ──
+  if(excludedDepts.length){
+    let ey = doc.lastAutoTable.finalY + 8;
+    if(ey > 250){ doc.addPage(); ey = 20; }
+    doc.setFillColor(255,243,224);doc.roundedRect(10,ey,190,10+excludedDepts.length*5+4,2,2,'F');
+    doc.setDrawColor(230,81,0);doc.setLineWidth(0.5);doc.line(10,ey,10,ey+10+excludedDepts.length*5+4);
+    doc.setFontSize(9);doc.setTextColor(191,54,12);doc.setFont('helvetica','bold');
+    doc.text(`Insufficient Data — Excluded from Report (< ${MIN_RECORDS} records this period)`,14,ey+6);
+    doc.setFontSize(8);doc.setTextColor(74,85,104);doc.setFont('helvetica','normal');
+    excludedDepts.forEach((d,i)=>{
+      doc.text(`•  ${d}  —  ${deptCounts[d]} record${deptCounts[d]!==1?'s':''}`, 16, ey+12+(i*5));
+    });
+    doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','italic');
+    doc.text('These wards are omitted from all charts, scores, and analysis below until they reach the minimum record threshold.',14,ey+12+excludedDepts.length*5+1);
+  }
+  doc.addPage();
+  // Page header bar
+  doc.setFillColor(0,137,123);doc.rect(0,0,210,14,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Compliance Charts & Analysis',14,9);
+  doc.setFontSize(7);doc.setTextColor(200,240,238);doc.setFont('helvetica','italic');
+  doc.text(`Reflects ${includedDepts.size} ward(s) with \u2265 ${MIN_RECORDS} records`, 196, 9, {align:'right'});
+
+  // Helper: draw a labelled chart image box
+  function drawChartBox(imgData, label, x, y, w, h) {
+    // Background card
+    doc.setFillColor(248,250,252);doc.roundedRect(x,y,w,h,2,2,'F');
+    doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.roundedRect(x,y,w,h,2,2,'S');
+    // Section label
+    doc.setFontSize(8);doc.setTextColor(113,128,150);doc.setFont('helvetica','bold');
+    doc.text(label.toUpperCase(), x+3, y+6);
+    // Teal underline
+    doc.setDrawColor(0,137,123);doc.setLineWidth(0.5);
+    doc.line(x+3, y+7.5, x+w-3, y+7.5);
+    // Chart image (leave 10mm for label at top)
+    if(imgData) {
+      doc.addImage(imgData,'PNG', x+2, y+10, w-4, h-13, undefined, 'FAST');
+    } else {
+      // Fallback: "chart not available" text
+      doc.setFontSize(8);doc.setTextColor(180,190,200);doc.setFont('helvetica','italic');
+      doc.text('Chart not available', x+w/2, y+h/2, {align:'center'});
+    }
+  }
+
+  const chartY1 = 18;
+  const chartY2 = 18 + 70 + 6;   // second row starts after first row + gap
+  const halfW   = 92;             // half page width minus margins
+  const chartH  = 68;             // height per chart box
+
+  // Row 1: Trend (left) + Distribution (right)
+  drawChartBox(imgTrend, 'Compliance Trend (Monthly)',  8,   chartY1, halfW, chartH);
+  drawChartBox(imgDist,  'Score Distribution',          110, chartY1, halfW, chartH);
+
+  // Row 2: By Role (left) + By Shift (right)
+  drawChartBox(imgRole,  'Compliance by Role',          8,   chartY2, halfW, chartH);
+  drawChartBox(imgShift, 'Compliance by Shift',         110, chartY2, halfW, chartH);
+
+  // Insight summary below charts
+  const insY = chartY2 + chartH + 8;
+  const shifts2={'Morning':[],'Afternoon':[],'Night':[]};
+  recs.forEach(r=>{ if(r.scores.overall===null)return; const k=Object.keys(shifts2).find(s=>r.shift&&r.shift.startsWith(s)); if(k)shifts2[k].push(r.scores.overall); });
+  const roles2={};
+  recs.forEach(r=>{ if(!r.role||r.scores.overall===null)return; if(!roles2[r.role])roles2[r.role]=[]; roles2[r.role].push(r.scores.overall); });
+  const rolesSorted=Object.entries(roles2).sort((a,b)=>avg(b[1])-avg(a[1]));
+
+  doc.setFillColor(224,242,241);doc.roundedRect(8,insY,194,28,2,2,'F');
+  doc.setDrawColor(0,137,123);doc.setLineWidth(0.3);doc.roundedRect(8,insY,194,28,2,2,'S');
+  doc.setFontSize(8.5);doc.setTextColor(0,105,92);doc.setFont('helvetica','bold');
+  doc.text('Key Insights from Charts', 12, insY+6);
+  doc.setFont('helvetica','normal');doc.setTextColor(26,32,44);doc.setFontSize(8);
+
+  const nightAvg=avg(shifts2.Night); const morningAvg=avg(shifts2.Morning); const afAvg=avg(shifts2.Afternoon);
+  const bestRole=rolesSorted.length?rolesSorted[0]:[null,[]];
+  const worstRole=rolesSorted.length?rolesSorted[rolesSorted.length-1]:[null,[]];
+
+  const insights=[
+    nightAvg!==null&&morningAvg!==null ? `Night shift (${nightAvg}%) vs Morning (${morningAvg}%) — ${nightAvg<morningAvg?'night shift needs attention':'night shift performing well'}` : null,
+    bestRole[0] ? `Best performing role: ${bestRole[0]} (${avg(bestRole[1])}%)` : null,
+    worstRole[0]&&worstRole[0]!==bestRole[0] ? `Lowest performing role: ${worstRole[0]} (${avg(worstRole[1])}%)` : null,
+  ].filter(Boolean);
+
+  insights.forEach((ins,i)=>{ doc.text(`• ${ins}`, 12, insY+13+(i*5)); });
+
+  // ── PAGE 3: Item-level compliance ──
+  doc.addPage();
+  doc.setFillColor(0,137,123);doc.rect(0,0,210,14,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Item-Level Compliance Analysis',14,9);
+
+  const allItems=[...CL.san,...CL.mom,...CL.stp];
+  const itemRows=allItems.map(item=>{ const v=itemScore(recs,item.id); return [item.id.toUpperCase(), item.t, v!==null?`${v}%`:'—', v===null?'—':v>=75?'Good':v>=50?'Needs Work':'Poor']; });
+
+  doc.autoTable({head:[['ID','Checklist Item','Score','Status']],body:itemRows,startY:18,styles:{fontSize:8,cellPadding:2.5},headStyles:{fillColor:[0,105,92],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,248]},bodyStyles:{textColor:[26,32,44]},columnStyles:{0:{cellWidth:14},1:{cellWidth:135},2:{cellWidth:18,halign:'center'},3:{cellWidth:23,halign:'center'}},
+    didParseCell:d=>{
+      if(d.column.index===3&&d.section==='body'){const t=d.cell.raw;d.cell.styles.textColor=t==='Good'?[46,125,50]:t==='Needs Work'?[230,81,0]:t==='Poor'?[198,40,40]:[113,128,150];d.cell.styles.fontStyle='bold';}
+      if(d.column.index===2&&d.section==='body'){const v=parseInt(d.cell.raw);if(!isNaN(v))d.cell.styles.textColor=scRGB(v);}
+    }
+  });
+
+  // ── PAGE 4: Recommendations ──
+  doc.addPage();
+  doc.setFillColor(0,137,123);doc.rect(0,0,210,14,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Recommendations & Action Points',14,9);
+
+  let ry=20;
+  const addR=(color,title,body)=>{
+    if(ry>260){doc.addPage();ry=14;}
+    const rgb=color==='red'?[198,40,40]:color==='amber'?[230,81,0]:[0,137,123];
+    doc.setFillColor(248,250,252);doc.roundedRect(10,ry,190,24,2,2,'F');
+    doc.setDrawColor(...rgb);doc.setLineWidth(.8);doc.line(10,ry,10,ry+24);
+    doc.setFontSize(9);doc.setTextColor(...rgb);doc.setFont('helvetica','bold');
+    doc.text(title,14,ry+7);
+    doc.setFontSize(8);doc.setTextColor(74,85,104);doc.setFont('helvetica','normal');
+    const wrapped=doc.splitTextToSize(body,178);
+    wrapped.forEach((line,li)=>doc.text(line,14,ry+13+(li*4.5)));
+    ry+=Math.max(24,10+wrapped.length*4.5)+4;
+  };
+
+  const ov=avg(allOv);
+  if(ov!==null&&ov<75) addR('red',`Overall compliance below target (${ov}% / target 75%)`,`Intensify IPC supervision. Implement mandatory refresher training. Increase observation frequency.`);
+  else if(ov!==null) addR('teal',`Overall compliance meets target (${ov}%)`,`Continue regular monitoring. Share positive results with staff to reinforce behavior.`);
+
+  const sv=avg(allSan),mv=avg(allMom),tv=avg(allStp);
+  if(sv!==null&&sv<75) addR('red',`Hand Sanitation: ${sv}%`,`Check ABHR availability at all care points. Enforce bare-below-elbows. Replenish supplies proactively.`);
+  if(mv!==null&&mv<75) addR('amber',`5 Moments Compliance: ${mv}%`,`Run WHO My 5 Moments workshops. Post visual moment-reminders at each bedside.`);
+  if(tv!==null&&tv<75) addR('amber',`6 Steps Technique: ${tv}%`,`Conduct return-demonstration sessions. Place step-by-step posters at handwashing sinks.`);
+
+  const poor=DEPTS.filter(d=>{ const v=avg(dd[d].ov); return v!==null&&v<50&&dd[d].count>=2; });
+  if(poor.length) addR('red',`Departments needing urgent attention`,`${poor.join(', ')} — compliance below 50%. Escalate to department heads and IPC Committee.`);
+
+  if(nightAvg!==null&&morningAvg!==null&&nightAvg<morningAvg-10) addR('amber',`Night shift compliance lower than daytime (${nightAvg}% vs ${morningAvg}%)`,`Increase supervisory presence during night shifts. Ensure ABHR stocks checked at shift handover.`);
+
+  const sc2=allItems.map(it=>({...it,v:itemScore(recs,it.id)})).filter(x=>x.v!==null).sort((a,b)=>a.v-b.v);
+  if(sc2.length&&sc2[0].v<60) addR('amber',`Priority checklist item: ${sc2[0].id.toUpperCase()}`,`"${sc2[0].t}" — only ${sc2[0].v}% compliance. Focus next IPC training session on this specific item.`);
+
+  // Footer all pages
+  const pg=doc.getNumberOfPages();
+  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text(`KCPH IPC Program · Confidential | Page ${p} of ${pg}`,14,290);doc.text(dt,170,290);}
+
+  doc.save(`KCPH_HH_Report_${from}_${to}.pdf`);
+  toast('Full report PDF exported ✓','ok');
+}
+
+// ════════════════════════════════════════════════
+// INDIVIDUAL RECORD PDF
+// ════════════════════════════════════════════════
+function exportRecordPDF(id) {
+  const r=records.find(x=>x.id===id);
+  if(!r){toast('Record not found','err');return;}
+  const{jsPDF}=window.jspdf, doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const a=r.answers||{}, pdt=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+  doc.setFillColor(0,137,123);doc.rect(0,0,210,30,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont('helvetica','bold');
+  doc.text('Hand Hygiene Observation Report',14,13);
+  doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(200,240,238);
+  doc.text('Kampong Chhnang Provincial Hospital · IPC Program',14,21);doc.text(`Printed: ${pdt}`,14,27);
+
+  doc.setFillColor(240,244,248);doc.rect(0,30,210,24,'F');
+  doc.setDrawColor(226,232,240);doc.setLineWidth(.3);doc.line(0,54,210,54);
+  const info=[{l:'Date',v:r.date},{l:'Department',v:r.dept},{l:'Observer',v:r.observer},{l:'Role',v:r.role},{l:'Shift',v:(r.shift||'').split(' ')[0]}];
+  let ix=14;
+  info.forEach(f=>{
+    doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text(f.l.toUpperCase(),ix,37);
+    doc.setFontSize(9);doc.setTextColor(26,32,44);doc.setFont('helvetica','bold');doc.text(f.v||'—',ix,46);
+    ix+=40;
+  });
+
+  const scrs=[{l:'Sanitation',v:r.scores.san},{l:'5 Moments',v:r.scores.mom},{l:'6 Steps',v:r.scores.stp},{l:'OVERALL',v:r.scores.overall,big:true}];
+  let sx=14;
+  scrs.forEach(s=>{
+    const c=scRGB(s.v);
+    doc.setFillColor(240,244,248);doc.roundedRect(sx,58,44,20,2,2,'F');
+    doc.setDrawColor(...c);doc.setLineWidth(.5);doc.roundedRect(sx,58,44,20,2,2,'S');
+    doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text(s.l.toUpperCase(),sx+3,65);
+    doc.setFontSize(s.big?14:13);doc.setTextColor(...c);doc.setFont('helvetica','bold');doc.text(s.v!==null?`${s.v}%`:'—',sx+3,75);
+    sx+=47;
+  });
+
+  const tb={styles:{fontSize:8.5,cellPadding:2.8},headStyles:{fillColor:[0,137,123],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,248]},bodyStyles:{textColor:[26,32,44]},columnStyles:{0:{cellWidth:155},1:{cellWidth:25,halign:'center'}},
+    didParseCell:d=>{if(d.column.index===1&&d.section==='body'){const v=d.cell.raw;d.cell.styles.textColor=v==='YES'?[46,125,50]:v==='NO'?[198,40,40]:[113,128,150];d.cell.styles.fontStyle='bold';}}
+  };
+  const mkR=items=>items.map(i=>([i.t,(a[i.id]||'').toUpperCase()||'—']));
+
+  doc.autoTable({...tb,head:[['Category 1 — Hand Sanitation','']],body:mkR(CL.san),startY:84});
+  doc.autoTable({...tb,head:[['Category 2 — Five Moments (WHO)','']],body:mkR(CL.mom),startY:doc.lastAutoTable.finalY+5});
+  doc.autoTable({...tb,head:[['Category 3 — Six Steps Technique','']],body:mkR(CL.stp),startY:doc.lastAutoTable.finalY+5});
+
+  const fy=doc.lastAutoTable.finalY+7;
+  if(fy<252){
+    doc.setFillColor(240,244,248);doc.roundedRect(10,fy,190,28,2,2,'F');
+    doc.setFontSize(8);doc.setTextColor(113,128,150);doc.setFont('helvetica','bold');
+    doc.text('OBSERVER REMARKS / RECOMMENDATIONS',14,fy+8);
+    doc.setDrawColor(226,232,240);doc.setLineWidth(.3);
+    for(let l=0;l<3;l++)doc.line(14,fy+14+(l*6),196,fy+14+(l*6));
+  }
+  const sy=Math.max(fy+36,262);
+  if(sy<278){doc.setFontSize(8);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text('Signature: ___________________________',14,sy);doc.text('Date: ______________',140,sy);}
+  doc.setFontSize(7);doc.setTextColor(113,128,150);doc.setFont('helvetica','normal');doc.text('KCPH IPC · Confidential',14,290);doc.text(`ID: ${r.id}`,150,290);
+
+  doc.save(`KCPH_HH_${r.dept.replace(/\s+/g,'_')}_${r.date}.pdf`);
+  toast(`PDF saved — ${r.dept}`,'ok');
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+function toast(msg,type='') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
